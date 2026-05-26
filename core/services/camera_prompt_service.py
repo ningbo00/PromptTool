@@ -2,6 +2,13 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
+class PresetResolution:
+    extra: str
+    param_values: dict[str, str]
+    custom_values: dict[str, str]
+
+
+@dataclass(frozen=True)
 class CameraPromptSpec:
     subject: str = ""
     environment: str = ""
@@ -73,6 +80,113 @@ def build_negative_zh(negative_text: str, zh_map: dict, fallback) -> str:
             fallback_zh = fallback(term)
             lines.append(zh_map.get(term.lower(), fallback_zh if fallback_zh != term else term))
     return "\n".join(lines)
+
+
+def build_subject_scene_zh(subject: str = "", environment: str = "") -> str:
+    parts = []
+    subject = _normalize(subject)
+    environment = _normalize(environment)
+    if subject:
+        parts.append(f"【主体描述】{subject}")
+    if environment:
+        parts.append(f"【场景环境】{environment}")
+    return "\n".join(parts)
+
+
+def build_style_mood_zh(
+    styles: list[str],
+    aesthetics: list[str],
+    moods: list[str],
+    motion: str,
+    style_map: dict[str, str],
+    aesthetic_map: dict[str, str],
+    mood_map: dict[str, str],
+    fallback,
+) -> str:
+    parts = []
+    if styles:
+        parts.append(f"【风格】{' / '.join(style_map.get(value, value) for value in styles)}")
+    if aesthetics:
+        parts.append(f"【美学流派】{' / '.join(aesthetic_map.get(value, value) for value in aesthetics)}")
+    if moods:
+        parts.append(f"【情绪氛围】{' / '.join(mood_map.get(value, value) for value in moods)}")
+    motion = _normalize(motion)
+    if motion and motion != "（不指定）":
+        parts.append(f"【动作动态】{fallback(motion)}")
+    return "\n".join(parts)
+
+
+def build_detail_tech_zh(
+    qualities: list[str],
+    textures: list[str],
+    colors: list[str],
+    render: str,
+    ratio: str,
+    quality_map: dict[str, str],
+    texture_map: dict[str, str],
+    color_map: dict[str, str],
+) -> str:
+    parts = []
+    if qualities:
+        parts.append(f"【质量词块】{' / '.join(quality_map.get(value, value) for value in qualities)}")
+    if textures:
+        parts.append(f"【细节质感】{' / '.join(texture_map.get(value, value) for value in textures)}")
+    if colors:
+        parts.append(f"【色彩补充】{' / '.join(color_map.get(value, value) for value in colors)}")
+    render = _render_value(render)
+    ratio = _normalize(ratio)
+    if render:
+        parts.append(f"【渲染引擎】{render}")
+    if ratio and ratio != "（不指定）":
+        parts.append(f"【输出比例】{ratio}")
+    return "\n".join(parts)
+
+
+def build_prompt_zh(
+    mode: str,
+    subject_scene: str = "",
+    params: list[str] | None = None,
+    camera: list[str] | None = None,
+    filters: list[str] | None = None,
+    style_mood: str = "",
+    detail_tech: str = "",
+    extra: str = "",
+) -> str:
+    lines = []
+    for value in [subject_scene, *(params or []), *(camera or [])]:
+        if value:
+            lines.append(value)
+    if filters:
+        lines.append(f"【滤镜效果】{' / '.join(filters)}")
+    for value in [style_mood, detail_tech]:
+        if value:
+            lines.append(value)
+    extra = _normalize(extra)
+    if extra:
+        lines.append(f"【附加词】{extra}")
+    header = f"═══ 中文参数对照（{mode}模式）═══\n"
+    return header + ("\n".join(lines) if lines else "（暂无启用参数）")
+
+
+def resolve_preset_values(preset: dict, param_options: dict[str, list[str]]) -> PresetResolution:
+    param_values = {}
+    custom_values = {}
+    for name, value in preset.items():
+        if name == "_extra" or name not in param_options:
+            continue
+        options = param_options[name]
+        match = next((option for option in options if option == value), None)
+        if match is None:
+            match = next((option for option in options if value in option or option in value), None)
+        if match:
+            param_values[name] = match
+        else:
+            custom_values[name] = value
+    return PresetResolution(
+        extra=preset.get("_extra", ""),
+        param_values=param_values,
+        custom_values=custom_values,
+    )
 
 
 def _render_value(value: str) -> str:

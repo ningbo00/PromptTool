@@ -18,8 +18,13 @@ from shared.constants import ZH_PARAM_NAMES, kw_to_zh
 from core.services.camera_prompt_service import (
     CameraPromptSpec,
     append_negative_as_positive,
+    build_detail_tech_zh as build_detail_tech_zh_text,
     build_camera_prompt,
     build_negative_zh as build_negative_zh_text,
+    build_prompt_zh as build_prompt_zh_text,
+    build_style_mood_zh as build_style_mood_zh_text,
+    build_subject_scene_zh,
+    resolve_preset_values,
 )
 from features.camera_builder.presets import (
     PARAMS_REAL, PARAMS_ANIME, FILTER_KEYWORDS,
@@ -207,23 +212,39 @@ class CameraBuilder(tk.Toplevel):
         self.nb = ttk.Notebook(parent, style="Dark.TNotebook")
         self.nb.pack(fill=tk.BOTH, expand=True)
 
-        self.tab_preset  = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_params  = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_camera  = tk.Frame(self.nb, bg=BG_SURFACE)
-        self.tab_filter  = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_subject = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_style   = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_detail  = tk.Frame(self.nb, bg=BG_BASE)
-        self.tab_extractor = tk.Frame(self.nb, bg=BG_BASE)
+        step_scene = tk.Frame(self.nb, bg=BG_BASE)
+        step_style = tk.Frame(self.nb, bg=BG_BASE)
+        step_camera = tk.Frame(self.nb, bg=BG_BASE)
+        step_output = tk.Frame(self.nb, bg=BG_BASE)
 
-        self.nb.add(self.tab_subject, text="1 场景")
-        self.nb.add(self.tab_preset,  text="2 风格·预设")
-        self.nb.add(self.tab_style,   text="2 风格·情绪")
-        self.nb.add(self.tab_filter,  text="2 风格·滤镜")
-        self.nb.add(self.tab_extractor, text="2 风格·提炼")
-        self.nb.add(self.tab_params,  text="3 镜头·参数")
-        self.nb.add(self.tab_camera,  text="3 镜头·位置")
-        self.nb.add(self.tab_detail,  text="4 输出")
+        self.nb.add(step_scene, text="1 场景")
+        self.nb.add(step_style, text="2 风格")
+        self.nb.add(step_camera, text="3 镜头")
+        self.nb.add(step_output, text="4 输出")
+
+        self.tab_subject = tk.Frame(step_scene, bg=BG_BASE)
+        self.tab_subject.pack(fill=tk.BOTH, expand=True)
+
+        style_nb = ttk.Notebook(step_style, style="Dark.TNotebook")
+        style_nb.pack(fill=tk.BOTH, expand=True)
+        self.tab_preset = tk.Frame(style_nb, bg=BG_BASE)
+        self.tab_style = tk.Frame(style_nb, bg=BG_BASE)
+        self.tab_filter = tk.Frame(style_nb, bg=BG_BASE)
+        self.tab_extractor = tk.Frame(style_nb, bg=BG_BASE)
+        style_nb.add(self.tab_preset, text="预设")
+        style_nb.add(self.tab_style, text="情绪")
+        style_nb.add(self.tab_filter, text="滤镜")
+        style_nb.add(self.tab_extractor, text="提炼")
+
+        camera_nb = ttk.Notebook(step_camera, style="Dark.TNotebook")
+        camera_nb.pack(fill=tk.BOTH, expand=True)
+        self.tab_params = tk.Frame(camera_nb, bg=BG_BASE)
+        self.tab_camera = tk.Frame(camera_nb, bg=BG_SURFACE)
+        camera_nb.add(self.tab_params, text="基础参数")
+        camera_nb.add(self.tab_camera, text="镜头位置")
+
+        self.tab_detail = tk.Frame(step_output, bg=BG_BASE)
+        self.tab_detail.pack(fill=tk.BOTH, expand=True)
 
         self._build_tab_preset()
         self._build_tab_params()
@@ -849,23 +870,22 @@ class CameraBuilder(tk.Toplevel):
         self._render_params()
 
         preset = (PRESETS_ANIME if anime_mode else PRESETS_REAL)[name]
-        self.extra_var.set(preset.get("_extra", ""))
+        params = PARAMS_ANIME if anime_mode else PARAMS_REAL
+        resolution = resolve_preset_values(
+            preset,
+            {pname: data[0] for pname, data in params.items()},
+        )
+        self.extra_var.set(resolution.extra)
 
         for pname in self.custom_vars:
             self.custom_vars[pname].set("")
 
-        params = PARAMS_ANIME if anime_mode else PARAMS_REAL
-        for pname, val in preset.items():
-            if pname == "_extra" or pname not in self.param_vars:
-                continue
-            options = params[pname][0]
-            match = next((o for o in options if o == val), None)
-            if match is None:
-                match = next((o for o in options if val in o or o in val), None)
-            if match:
-                self.param_vars[pname].set(match)
-            else:
-                self.custom_vars[pname].set(val)
+        for pname, value in resolution.param_values.items():
+            if pname in self.param_vars:
+                self.param_vars[pname].set(value)
+        for pname, value in resolution.custom_values.items():
+            if pname in self.custom_vars:
+                self.custom_vars[pname].set(value)
 
         self._generate()
 
@@ -1658,16 +1678,13 @@ class CameraBuilder(tk.Toplevel):
         ))
 
     def _build_prompt_zh(self):
-        lines = []
         mode = "二次元" if self.is_anime.get() else "实拍"
-        header = f"═══ 中文参数对照（{mode}模式）═══\n"
 
         # ── 主体场景 ────────────────────────────────────────────────
         subject_zh = self._build_subject_scene_zh()
-        if subject_zh:
-            lines.append(subject_zh)
 
         # ── 基础参数 ────────────────────────────────────────────────
+        param_lines = []
         params = PARAMS_ANIME if self.is_anime.get() else PARAMS_REAL
         for name, (_, kw_fn) in params.items():
             if not self.param_checks.get(name, tk.BooleanVar(value=False)).get():
@@ -1680,24 +1697,25 @@ class CameraBuilder(tk.Toplevel):
                 kw = kw_fn(selected_val)
             if kw:
                 label = ZH_PARAM_NAMES.get(name, name)
-                lines.append(f"【{label}】{kw_to_zh(kw)}")
+                param_lines.append(f"【{label}】{kw_to_zh(kw)}")
 
         # ── 镜头参数 ────────────────────────────────────────────────
+        camera_lines = []
         if self.shot_enabled.get():
             kw, desc = SHOT_SCALE[self.shot_var.get()]
-            lines.append(f"【景别】{desc.split('—')[0].strip()}")
+            camera_lines.append(f"【景别】{desc.split('—')[0].strip()}")
         if self.elevation_enabled.get():
             kw, desc = CAMERA_ELEVATION[self.elevation_var.get()]
-            lines.append(f"【俯仰角】{desc.split('—')[0].strip()}")
+            camera_lines.append(f"【俯仰角】{desc.split('—')[0].strip()}")
         if self.subject_angle_enabled.get():
             kw, desc = SUBJECT_ANGLE[self.subject_angle_var.get()]
-            lines.append(f"【方位角】{desc.split('—')[0].strip()}")
+            camera_lines.append(f"【方位角】{desc.split('—')[0].strip()}")
         if self.light_dir_enabled.get():
             kw = self._light_keyword()
             if kw:
-                lines.append(f"【主光源】{kw_to_zh(kw)}")
+                camera_lines.append(f"【主光源】{kw_to_zh(kw)}")
         if self.rim_light_var.get():
-            lines.append("【轮廓光】已启用")
+            camera_lines.append("【轮廓光】已启用")
 
         # ── 滤镜积木 ────────────────────────────────────────────────
         active_filters = []
@@ -1705,37 +1723,38 @@ class CameraBuilder(tk.Toplevel):
             if bv.get():
                 zh = kw_to_zh(english_keyword)
                 active_filters.append(zh)
-        if active_filters:
-            lines.append(f"【滤镜效果】{' / '.join(active_filters)}")
 
         # ── 风格情绪 ────────────────────────────────────────────────
         style_zh = self._build_style_mood_zh()
-        if style_zh:
-            lines.append(style_zh)
 
         # ── 细节技术 ────────────────────────────────────────────────
         detail_zh = self._build_detail_tech_zh()
-        if detail_zh:
-            lines.append(detail_zh)
 
         # ── 附加词 ──────────────────────────────────────────────────
         extra = self.extra_var.get().strip()
-        if extra:
-            lines.append(f"【附加词】{extra}")
-
-        return header + "\n".join(lines) if lines else header + "（暂无启用参数）"
+        return build_prompt_zh_text(
+            mode=mode,
+            subject_scene=subject_zh,
+            params=param_lines,
+            camera=camera_lines,
+            filters=active_filters,
+            style_mood=style_zh,
+            detail_tech=detail_zh,
+            extra=extra,
+        )
 
     def _build_subject_scene_zh(self):
-        parts = []
+        subject = ""
+        environment = ""
         if self.subject_text:
             subj = self.subject_text.get("1.0", tk.END).strip()
             if subj and subj != self._SUBJECT_HINT:
-                parts.append(f"【主体描述】{subj}")
+                subject = subj
         if self.environ_text:
             env = self.environ_text.get("1.0", tk.END).strip()
             if env and env != self._ENVIRON_HINT:
-                parts.append(f"【场景环境】{env}")
-        return "\n".join(parts)
+                environment = env
+        return build_subject_scene_zh(subject, environment)
 
     def _build_style_mood_zh(self):
         from features.camera_builder.presets import (
@@ -1743,28 +1762,21 @@ class CameraBuilder(tk.Toplevel):
             AESTHETIC_REAL, AESTHETIC_ANIME,
             MOOD_REAL, MOOD_ANIME,
         )
-        parts = []
         is_anime = self.is_anime.get()
         style_zh_map = {kw: zh for kw, zh in (STYLE_ANIME if is_anime else STYLE_REAL)}
         aesthetic_zh_map = {kw: zh for kw, zh in (AESTHETIC_ANIME if is_anime else AESTHETIC_REAL)}
         mood_zh_map = {kw: zh for kw, zh in (MOOD_ANIME if is_anime else MOOD_REAL)}
 
-        active_style = [(kw, style_zh_map.get(kw, kw)) for kw, bv in self.style_toggles.items() if bv.get()]
-        if active_style:
-            parts.append(f"【风格】{' / '.join(f'{zh}' for _, zh in active_style)}")
-
-        active_aesthetic = [(kw, aesthetic_zh_map.get(kw, kw)) for kw, bv in self.aesthetic_toggles.items() if bv.get()]
-        if active_aesthetic:
-            parts.append(f"【美学流派】{' / '.join(f'{zh}' for _, zh in active_aesthetic)}")
-
-        active_mood = [(kw, mood_zh_map.get(kw, kw)) for kw, bv in self.mood_toggles.items() if bv.get()]
-        if active_mood:
-            parts.append(f"【情绪氛围】{' / '.join(f'{zh}' for _, zh in active_mood)}")
-
-        motion = self.motion_var.get().strip()
-        if motion and motion != "（不指定）":
-            parts.append(f"【动作动态】{kw_to_zh(motion)}")
-        return "\n".join(parts)
+        return build_style_mood_zh_text(
+            styles=[kw for kw, bv in self.style_toggles.items() if bv.get()],
+            aesthetics=[kw for kw, bv in self.aesthetic_toggles.items() if bv.get()],
+            moods=[kw for kw, bv in self.mood_toggles.items() if bv.get()],
+            motion=self.motion_var.get().strip(),
+            style_map=style_zh_map,
+            aesthetic_map=aesthetic_zh_map,
+            mood_map=mood_zh_map,
+            fallback=kw_to_zh,
+        )
 
     def _build_detail_tech_zh(self):
         from features.camera_builder.presets import (
@@ -1772,31 +1784,20 @@ class CameraBuilder(tk.Toplevel):
             TEXTURE_REAL, TEXTURE_ANIME,
             COLOR_SUPPLEMENT_REAL, COLOR_SUPPLEMENT_ANIME,
         )
-        parts = []
         is_anime = self.is_anime.get()
         quality_zh_map = {kw: zh for kw, zh in (QUALITY_CHIPS_ANIME if is_anime else QUALITY_CHIPS_REAL)}
         texture_zh_map = {kw: zh for kw, zh in (TEXTURE_ANIME if is_anime else TEXTURE_REAL)}
         color_zh_map = {kw: zh for kw, zh in (COLOR_SUPPLEMENT_ANIME if is_anime else COLOR_SUPPLEMENT_REAL)}
-
-        active_quality = [(kw, quality_zh_map.get(kw, kw)) for kw, bv in self.quality_toggles.items() if bv.get()]
-        if active_quality:
-            parts.append(f"【质量词块】{' / '.join(zh for _, zh in active_quality)}")
-
-        active_texture = [(kw, texture_zh_map.get(kw, kw)) for kw, bv in self.texture_toggles.items() if bv.get()]
-        if active_texture:
-            parts.append(f"【细节质感】{' / '.join(zh for _, zh in active_texture)}")
-
-        active_color = [(kw, color_zh_map.get(kw, kw)) for kw, bv in self.color_toggles.items() if bv.get()]
-        if active_color:
-            parts.append(f"【色彩补充】{' / '.join(zh for _, zh in active_color)}")
-
-        render = self.render_var.get().strip()
-        if render and render != "（不指定）":
-            parts.append(f"【渲染引擎】{render}")
-        ratio = self.ratio_var.get().strip()
-        if ratio and ratio != "（不指定）":
-            parts.append(f"【输出比例】{ratio}")
-        return "\n".join(parts)
+        return build_detail_tech_zh_text(
+            qualities=[kw for kw, bv in self.quality_toggles.items() if bv.get()],
+            textures=[kw for kw, bv in self.texture_toggles.items() if bv.get()],
+            colors=[kw for kw, bv in self.color_toggles.items() if bv.get()],
+            render=self.render_var.get().strip(),
+            ratio=self.ratio_var.get().strip(),
+            quality_map=quality_zh_map,
+            texture_map=texture_zh_map,
+            color_map=color_zh_map,
+        )
 
     def _build_negative_zh(self, neg_text: str) -> str:
         return build_negative_zh_text(neg_text, NEGATIVE_ZH_MAP, kw_to_zh)
