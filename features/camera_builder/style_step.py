@@ -6,6 +6,12 @@ from shared.ui_kit import (
     FG_PRIMARY, FG_MUTED, FG_DIM, ACCENT_BLUE, ACCENT_GREEN,
     ACCENT_PURPLE, ACCENT_YELLOW, DARK_TEXT,
 )
+from features.camera_builder.extractor_actions import (
+    append_extractor_extra,
+    apply_extractor_style,
+    clear_extractor_style,
+    select_extractor_preset,
+)
 from features.camera_builder.presets import (
     FILTER_KEYWORDS, PRESETS_REAL, PRESETS_ANIME,
     STYLE_REAL, STYLE_ANIME, MOOD_REAL, MOOD_ANIME,
@@ -303,7 +309,7 @@ def build_extractor_tab(builder):
                 btn_row, text=preset["name"], bg=BG_CARD, fg=FG_PRIMARY,
                 relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=6,
                 cursor="hand2", activebackground=BG_HOVER,
-                command=lambda idx=i: builder._select_extractor_preset(idx),
+                command=lambda idx=i: select_extractor_preset(builder, idx),
             )
             b.pack(side=tk.LEFT, padx=(0, 6), pady=2)
             builder._extractor_btn_refs[i] = b
@@ -336,7 +342,7 @@ def build_extractor_tab(builder):
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
         cursor="hand2", activebackground=ACCENT_BLUE,
         state=tk.DISABLED,
-        command=builder._extractor_apply_style,
+        command=lambda: apply_extractor_style(builder),
     )
     builder._extractor_apply_btn.pack(side=tk.LEFT, padx=(0, 6))
     Tooltip(builder._extractor_apply_btn,
@@ -346,7 +352,7 @@ def build_extractor_tab(builder):
         act_row, text="➕ 追加到附加词", bg=ACCENT_GREEN, fg=DARK_TEXT,
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
         cursor="hand2", activebackground=ACCENT_GREEN,
-        command=builder._extractor_append_extra,
+        command=lambda: append_extractor_extra(builder),
     ).pack(side=tk.LEFT, padx=(0, 6))
     Tooltip(act_row.winfo_children()[-1],
             "➕ 追加到附加词\n将预设的所有关键词追加到右侧预览的附加词输入框，直接加入最终 Prompt 而不激活词块。")
@@ -355,7 +361,7 @@ def build_extractor_tab(builder):
         act_row, text="🗑 清除已选风格", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=4,
         cursor="hand2", activebackground=BG_HOVER,
-        command=builder._extractor_clear_style,
+        command=lambda: clear_extractor_style(builder),
     ).pack(side=tk.LEFT)
     Tooltip(act_row.winfo_children()[-1],
             "🗑 清除已选风格\n取消[风格情绪]页签中所有已激活的风格/美学/情绪词块，恢复全部为未选状态。")

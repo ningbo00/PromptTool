@@ -10,6 +10,7 @@ from features.camera_builder.presets import (
     TEXTURE_REAL, TEXTURE_ANIME, COLOR_SUPPLEMENT_REAL, COLOR_SUPPLEMENT_ANIME,
     RENDER_ENGINES, OUTPUT_RATIOS, QUALITY_CHIPS_REAL, QUALITY_CHIPS_ANIME,
 )
+from features.camera_builder.negative_panel import fill_negative_preset
 from features.camera_builder.style_step import fill_toggle_grid
 
 
@@ -81,7 +82,7 @@ def build_detail_tab(builder):
             bg=BG_CARD, fg=ACCENT_RED, relief=tk.FLAT,
             font=("微软雅黑", 8, "bold"), padx=10, pady=3, cursor="hand2",
             activebackground=BG_HOVER,
-            command=lambda k=key: builder._fill_neg_preset(k),
+            command=lambda k=key: fill_negative_preset(builder, k),
         )
         b.pack(side=tk.LEFT, padx=(0, 6))
         tips = {"通用": "通用负面词\n追加常用负面词（模糊/低质/水印/多余文字/解剖错误等），适合所有风格。",

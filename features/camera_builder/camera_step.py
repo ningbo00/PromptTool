@@ -6,6 +6,16 @@ from shared.ui_kit import (
     FG_PRIMARY, FG_MUTED, FG_DIM, ACCENT_BLUE, ACCENT_GREEN,
     ACCENT_PURPLE, ACCENT_YELLOW, ACCENT_CYAN, DARK_TEXT,
 )
+from features.camera_builder.light_panel import (
+    draw_light_sphere,
+    pick_light_color,
+    set_hemi,
+    sphere_click,
+    sphere_drag,
+    sphere_release,
+    toggle_rim_light,
+    update_light_labels,
+)
 from features.camera_builder.presets import PARAMS_REAL, PARAMS_ANIME
 
 
@@ -149,10 +159,10 @@ def build_sliders_section(builder, parent):
         cursor="crosshair",
     )
     builder._light_sphere_canvas.pack(side=tk.LEFT, padx=(0, 12))
-    builder._draw_light_sphere()
-    builder._light_sphere_canvas.bind("<Button-1>",        builder._sphere_click)
-    builder._light_sphere_canvas.bind("<B1-Motion>",       builder._sphere_drag)
-    builder._light_sphere_canvas.bind("<ButtonRelease-1>", builder._sphere_release)
+    draw_light_sphere(builder)
+    builder._light_sphere_canvas.bind("<Button-1>", lambda event: sphere_click(builder, event))
+    builder._light_sphere_canvas.bind("<B1-Motion>", lambda event: sphere_drag(builder, event))
+    builder._light_sphere_canvas.bind("<ButtonRelease-1>", lambda event: sphere_release(builder, event))
 
     right_col = tk.Frame(light_body, bg=BG_SURFACE)
     right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -165,14 +175,14 @@ def build_sliders_section(builder, parent):
         hemi_row, text="前", bg=ACCENT_BLUE, fg=DARK_TEXT,
         relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
         cursor="hand2", activebackground=ACCENT_BLUE,
-        command=lambda: builder._set_hemi(False),
+        command=lambda: set_hemi(builder, False),
     )
     builder._hemi_front_btn.pack(side=tk.LEFT, padx=(6, 2))
     builder._hemi_back_btn = tk.Button(
         hemi_row, text="后", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
         cursor="hand2", activebackground=BG_HOVER,
-        command=lambda: builder._set_hemi(True),
+        command=lambda: set_hemi(builder, True),
     )
     builder._hemi_back_btn.pack(side=tk.LEFT)
 
@@ -183,7 +193,7 @@ def build_sliders_section(builder, parent):
     builder._light_color_btn = tk.Button(
         color_row, text="", width=3, relief=tk.FLAT, cursor="hand2",
         bg=builder.light_color, activebackground=builder.light_color,
-        command=builder._pick_light_color,
+        command=lambda: pick_light_color(builder),
     )
     builder._light_color_btn.pack(side=tk.LEFT, padx=(8, 0), ipady=6)
     builder._light_color_label = tk.Label(
@@ -202,7 +212,7 @@ def build_sliders_section(builder, parent):
                                     fg=ACCENT_GREEN, font=("微软雅黑", 8),
                                     wraplength=160, justify=tk.LEFT)
     builder._light_kw_label.pack(anchor="w")
-    builder._update_light_labels()
+    update_light_labels(builder)
 
     ttk.Separator(outer, orient="horizontal").pack(fill=tk.X, padx=16, pady=6)
 
@@ -214,6 +224,6 @@ def build_sliders_section(builder, parent):
     builder._rim_btn = tk.Button(
         sec4, text="○ 关", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=10, pady=2,
-        cursor="hand2", command=builder._toggle_rim_light,
+        cursor="hand2", command=lambda: toggle_rim_light(builder),
     )
     builder._rim_btn.pack(side=tk.RIGHT)

@@ -1,11 +1,9 @@
 """
 摄影机参数构建器窗口（从 main.py 抽取，依赖 shared/ 和 presets.py）
 """
-import math
 import tkinter as tk
 from tkinter import ttk
 import tkinter.simpledialog
-from tkinter.colorchooser import askcolor
 
 from shared.ui_kit import (
     apply_dark_notebook_style, Tooltip,
@@ -26,6 +24,7 @@ from core.services.camera_prompt_service import (
     build_subject_scene_zh,
     resolve_preset_values,
 )
+from core.services.camera_light_service import light_keyword
 from features.camera_builder.scene_step import create_scene_step, build_subject_tab, fill_chips
 from features.camera_builder.style_step import (
     create_style_step, build_preset_tab, build_style_tab, build_filter_tab,
@@ -50,7 +49,6 @@ from features.camera_builder.presets import (
     SUBJECT_COUNT_REAL, SUBJECT_COUNT_ANIME,
     AESTHETIC_REAL, AESTHETIC_ANIME,
     QUALITY_CHIPS_REAL, QUALITY_CHIPS_ANIME,
-    NEG_PRESETS,
     NEGATIVE_ZH_MAP,
 )
 
@@ -256,231 +254,6 @@ class CameraBuilder(tk.Toplevel):
             self.angle_result_label.config(text=f"{kw}  ·  {desc}")
         self._generate()
 
-    def _toggle_rim_light(self):
-        self.rim_light_var.set(not self.rim_light_var.get())
-        on = self.rim_light_var.get()
-        self._rim_btn.config(
-            text="● 开" if on else "○ 关",
-            bg=ACCENT_YELLOW if on else BG_HOVER,
-            fg=DARK_TEXT if on else FG_PRIMARY,
-        )
-        self._generate()
-
-    # ── 3D 球体光源 ─────────────────────────────────────────────
-    _SPHERE_R    = 68
-    _SPHERE_SIZE = 160
-
-    def _sphere_xy_from_angles(self):
-        cx = cy = self._SPHERE_SIZE / 2
-        az = math.radians(self.light_azimuth.get())
-        el = math.radians(self.light_elevation.get())
-        x = cx + self._SPHERE_R * math.sin(az) * math.cos(el)
-        y = cy - self._SPHERE_R * math.sin(el)
-        return x, y
-
-    def _angles_from_sphere_xy(self, mx, my):
-        cx = cy = self._SPHERE_SIZE / 2
-        dx = mx - cx
-        dy = -(my - cy)
-        dist = math.hypot(dx, dy)
-        r = self._SPHERE_R
-        if dist > r:
-            scale = r / dist
-            dx *= scale
-            dy *= scale
-        el = math.degrees(math.asin(max(-1, min(1, dy / r))))
-        cos_el = math.cos(math.radians(el))
-        if cos_el > 1e-6:
-            sin_az = max(-1.0, min(1.0, dx / (r * cos_el)))
-            az_raw = math.degrees(math.asin(sin_az))
-            if self.light_back_mode.get():
-                az = (180.0 - az_raw) % 360
-            else:
-                az = az_raw % 360
-        else:
-            az = self.light_azimuth.get()
-        return az, el
-
-    def _draw_light_sphere(self):
-        c = self._light_sphere_canvas
-        if c is None:
-            return
-        c.delete("all")
-        cx = cy = self._SPHERE_SIZE / 2
-        r = self._SPHERE_R
-
-        for i in range(4, 0, -1):
-            rr = r * i / 4
-            grey = 30 + i * 8
-            col = f"#{grey:02x}{grey:02x}{grey+10:02x}"
-            c.create_oval(cx - rr, cy - rr, cx + rr, cy + rr, outline="", fill=col)
-
-        c.create_oval(cx - r, cy - r, cx + r, cy + r, outline=BG_HOVER, width=1, fill="")
-
-        for az_deg in range(0, 180, 45):
-            az = math.radians(az_deg)
-            pts = []
-            for el_deg in range(-90, 91, 5):
-                el = math.radians(el_deg)
-                pts.extend([cx + r * math.sin(az) * math.cos(el), cy - r * math.sin(el)])
-            if len(pts) >= 4:
-                c.create_line(pts, fill="#2a2a4a", width=1, smooth=True)
-            pts2 = []
-            for el_deg in range(-90, 91, 5):
-                el = math.radians(el_deg)
-                pts2.extend([cx - r * math.sin(az) * math.cos(el), cy - r * math.sin(el)])
-            if len(pts2) >= 4:
-                c.create_line(pts2, fill="#2a2a4a", width=1, smooth=True)
-
-        for el_deg in [-60, -30, 0, 30, 60]:
-            el = math.radians(el_deg)
-            ry = r * math.cos(el)
-            yy = cy - r * math.sin(el)
-            col = "#3a3a5a" if el_deg != 0 else "#4a4a6a"
-            c.create_oval(cx - ry, yy - ry * 0.15, cx + ry, yy + ry * 0.15, outline=col, width=1, fill="")
-
-        c.create_oval(cx - r, cy - r * 0.15, cx + r, cy + r * 0.15, outline="#55557a", width=1, fill="")
-
-        lx, ly = self._sphere_xy_from_angles()
-        c.create_line(cx, cy, lx, ly, fill=ACCENT_YELLOW, width=1, dash=(3, 3))
-
-        dot_r = 7
-        col = self.light_color or "#ffffff"
-        for halo in [14, 10]:
-            alpha_col = self._blend_color(col, "#1a1a2e", halo / 14)
-            c.create_oval(lx - halo, ly - halo, lx + halo, ly + halo, outline="", fill=alpha_col)
-        c.create_oval(lx - dot_r, ly - dot_r, lx + dot_r, ly + dot_r,
-                      outline="#ffffff", width=1, fill=col, tags="dot")
-        self._light_dot_id = "dot"
-
-    def _blend_color(self, hex1, hex2, t):
-        def parse(h):
-            h = h.lstrip("#")
-            return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        r1, g1, b1 = parse(hex1)
-        r2, g2, b2 = parse(hex2)
-        return f"#{int(r1*t+r2*(1-t)):02x}{int(g1*t+g2*(1-t)):02x}{int(b1*t+b2*(1-t)):02x}"
-
-    def _sphere_click(self, event):
-        az, el = self._angles_from_sphere_xy(event.x, event.y)
-        self.light_azimuth.set(round(az, 1))
-        self.light_elevation.set(round(el, 1))
-        self._draw_light_sphere()
-        self._update_light_labels()
-        self._generate()
-
-    def _sphere_drag(self, event):
-        self._sphere_click(event)
-
-    def _sphere_release(self, event):
-        self._sphere_click(event)
-
-    def _update_light_labels(self):
-        az = self.light_azimuth.get()
-        el = self.light_elevation.get()
-        if self._azimuth_label:
-            self._azimuth_label.config(text=f"水平角: {az:.0f}°")
-        if self._elev_label:
-            self._elev_label.config(text=f"仰俯角: {el:.0f}°")
-        if self._light_kw_label:
-            self._light_kw_label.config(text=self._light_keyword())
-
-    def _light_keyword(self):
-        az = self.light_azimuth.get()
-        el = self.light_elevation.get()
-
-        if el > 60:
-            dir_str = "overhead top-down lighting"
-        elif el < -60:
-            dir_str = "underlighting from below"
-        else:
-            sectors = [
-                (0,   22,  "front lighting"),
-                (22,  68,  "front-right lighting"),
-                (68,  112, "right side lighting"),
-                (112, 158, "back-right lighting"),
-                (158, 202, "back lighting"),
-                (202, 248, "back-left lighting"),
-                (248, 292, "left side lighting"),
-                (292, 338, "front-left lighting"),
-                (338, 360, "front lighting"),
-            ]
-            dir_str = "front lighting"
-            for lo, hi, name in sectors:
-                if lo <= az < hi:
-                    dir_str = name
-                    break
-            if el > 30:
-                dir_str = "high " + dir_str
-            elif el < -15:
-                dir_str = "low " + dir_str
-
-        color_map = {
-            "#ffffff": "white", "#fff4e0": "warm white", "#ffd700": "golden",
-            "#ff8c00": "orange", "#ff4500": "red-orange", "#ff0000": "red",
-            "#ff69b4": "pink", "#00bfff": "cool blue", "#87ceeb": "soft blue",
-            "#00ffff": "cyan", "#00ff00": "green", "#9400d3": "purple",
-        }
-        col_str = color_map.get(self.light_color.lower())
-        if col_str is None:
-            import colorsys
-            def hex_to_rgb(h):
-                h = h.lstrip("#")
-                return int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255
-            def color_dist(h1, h2):
-                r1, g1, b1 = hex_to_rgb(h1)
-                r2, g2, b2 = hex_to_rgb(h2)
-                return (r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2
-            best = min(color_map.keys(), key=lambda k: color_dist(k, self.light_color.lower()))
-            if color_dist(best, self.light_color.lower()) < 0.15:
-                col_str = color_map[best]
-            else:
-                r, g, b = hex_to_rgb(self.light_color.lower())
-                h, s, v = colorsys.rgb_to_hsv(r, g, b)
-                if s < 0.15:
-                    col_str = "white" if v > 0.8 else "grey"
-                else:
-                    hue_names = [(0, "red"), (30/360, "orange"), (60/360, "yellow"),
-                                 (120/360, "green"), (180/360, "cyan"), (240/360, "blue"),
-                                 (300/360, "purple"), (330/360, "pink"), (1.0, "red")]
-                    col_str = min(hue_names, key=lambda x: abs(x[0]-h))[1]
-
-        if col_str in {"white", "warm white"}:
-            return dir_str
-        return f"{col_str} {dir_str}"
-
-    def _pick_light_color(self):
-        result = askcolor(color=self.light_color, parent=self, title="选择光源颜色")
-        if result and result[1]:
-            self.light_color = result[1].lower()
-            if self._light_color_btn:
-                self._light_color_btn.config(bg=self.light_color, activebackground=self.light_color)
-            if self._light_color_label:
-                self._light_color_label.config(text=self.light_color)
-            self._draw_light_sphere()
-            self._update_light_labels()
-            self._generate()
-
-    def _set_hemi(self, back: bool):
-        self.light_back_mode.set(back)
-        if self._hemi_front_btn:
-            self._hemi_front_btn.config(
-                bg=ACCENT_BLUE if not back else BG_HOVER,
-                fg=DARK_TEXT if not back else FG_PRIMARY,
-            )
-        if self._hemi_back_btn:
-            self._hemi_back_btn.config(
-                bg=ACCENT_BLUE if back else BG_HOVER,
-                fg=DARK_TEXT if back else FG_PRIMARY,
-            )
-        az = self.light_azimuth.get()
-        if back and not (90 <= az <= 270):
-            self.light_azimuth.set((180 - az) % 360)
-        elif not back and (90 < az < 270):
-            self.light_azimuth.set((180 - az) % 360)
-        self._draw_light_sphere()
-        self._update_light_labels()
-        self._generate()
 
     # ── Entry 占位符 ─────────────────────────────────────────────
     def _entry_focus_in(self, entry):
@@ -494,14 +267,6 @@ class CameraBuilder(tk.Toplevel):
             entry.insert(0, "自定义...")
             entry.config(fg=FG_DIM)
         self._generate()
-
-    # ── Tab3：滤镜积木 ────────────────────────────────────────────
-
-
-
-
-    # ── Tab4：预设 ────────────────────────────────────────────────
-
 
     def _apply_preset(self, name, anime_mode):
         self.is_anime.set(anime_mode)
@@ -535,8 +300,6 @@ class CameraBuilder(tk.Toplevel):
     # ── Tab5：主体场景 ────────────────────────────────────────────
     _SUBJECT_HINT = "描述主体（人物/动物/物体）..."
     _ENVIRON_HINT = "描述场景环境（地点/时间/背景）..."
-
-
 
     def _append_chip(self, text_widget, chip):
         current = text_widget.get("1.0", tk.END).strip()
@@ -572,9 +335,6 @@ class CameraBuilder(tk.Toplevel):
             fill_chips(self, self._weather_chips_frame, self.environ_text,
                              WEATHER_CHIPS_ANIME if self.is_anime.get() else WEATHER_CHIPS_REAL)
 
-    # ── Tab6：风格情绪 ────────────────────────────────────────────
-
-
     def _refresh_style_blocks(self):
         if self._style_grid and self._style_grid.winfo_exists():
             fill_toggle_grid(self, self._style_grid, self.style_toggles,
@@ -586,7 +346,6 @@ class CameraBuilder(tk.Toplevel):
             fill_toggle_grid(self, self._mood_grid, self.mood_toggles,
                                    MOOD_ANIME if self.is_anime.get() else MOOD_REAL, cols=4)
 
-    # ── Tab7：细节技术 ────────────────────────────────────────────
 
     def _refresh_detail_blocks(self):
         if self._quality_grid and self._quality_grid.winfo_exists():
@@ -598,108 +357,6 @@ class CameraBuilder(tk.Toplevel):
         if self._color_grid and self._color_grid.winfo_exists():
             fill_toggle_grid(self, self._color_grid, self.color_toggles,
                                    COLOR_SUPPLEMENT_ANIME if self.is_anime.get() else COLOR_SUPPLEMENT_REAL, cols=3)
-
-    def _fill_neg_preset(self, key):
-        preset_text = NEG_PRESETS.get(key, "")
-        if not preset_text:
-            return
-        if self.neg_text is None:
-            return
-        current = self.neg_text.get("1.0", tk.END).strip()
-        if current:
-            self.neg_text.insert(tk.END, f", {preset_text}")
-        else:
-            self.neg_text.insert("1.0", preset_text)
-        self._generate()
-
-    # ── Tab8：风格提炼器 ──────────────────────────────────────────
-
-    def _select_extractor_preset(self, idx):
-        self._extractor_selected_idx = idx
-        preset = self._extractor_presets[idx]
-        if not hasattr(self, "_extractor_detail_text") or self._extractor_detail_text is None:
-            return
-
-        # 高亮选中按钮，其余恢复
-        for i, btn in self._extractor_btn_refs.items():
-            btn.config(bg=ACCENT_PURPLE if i == idx else BG_CARD,
-                       fg=DARK_TEXT if i == idx else FG_PRIMARY)
-
-        zh = preset.get("zh_details", {})
-        keywords = preset.get("keywords", [])
-        detail_lines = [
-            f"【{preset['name']}】",
-            f"✦ {preset.get('zh_summary', '')}",
-            "",
-            f"线条风格：{zh.get('linework', preset.get('linework', ''))}",
-            f"明暗处理：{zh.get('shading', preset.get('shading', ''))}",
-            f"打光方式：{zh.get('lighting', preset.get('lighting', ''))}",
-            f"色彩调性：{zh.get('palette', preset.get('palette', ''))}",
-            f"构图风格：{zh.get('composition', preset.get('composition', ''))}",
-            f"情绪基调：{zh.get('mood', preset.get('mood', ''))}",
-            f"动态描述：{zh.get('motion', preset.get('motion', ''))}",
-            f"背景细节：{preset.get('background_detail', '')}",
-            "",
-            f"注入关键词（{len(keywords)} 个）：{', '.join(keywords)}",
-        ]
-        self._extractor_detail_text.config(state=tk.NORMAL)
-        self._extractor_detail_text.delete("1.0", tk.END)
-        self._extractor_detail_text.insert("1.0", "\n".join(detail_lines))
-        self._extractor_detail_text.config(state=tk.DISABLED)
-
-        # 预计算匹配数
-        match_count = sum(
-            1 for kw in keywords
-            for existing_kw in list(self.style_toggles) + list(self.aesthetic_toggles) + list(self.mood_toggles)
-            if existing_kw.lower() in kw.lower() or kw.lower() in existing_kw.lower()
-        )
-        if hasattr(self, "_extractor_match_lbl"):
-            if match_count:
-                self._extractor_match_lbl.config(text=f"可匹配 {match_count} 个词块")
-            else:
-                self._extractor_match_lbl.config(text="（无匹配词块，建议用[追加到附加词]）")
-
-        if hasattr(self, "_extractor_apply_btn"):
-            self._extractor_apply_btn.config(state=tk.NORMAL)
-
-
-    def _extractor_apply_style(self):
-        if self._extractor_selected_idx is None:
-            return
-        preset = self._extractor_presets[self._extractor_selected_idx]
-        keywords = preset.get("keywords", [])
-        # 将关键词与现有 style/aesthetic/mood toggles 匹配并激活
-        for kw in keywords:
-            kw_lower = kw.lower()
-            for existing_kw, bv in self.style_toggles.items():
-                if existing_kw.lower() in kw_lower or kw_lower in existing_kw.lower():
-                    bv.set(True)
-            for existing_kw, bv in self.aesthetic_toggles.items():
-                if existing_kw.lower() in kw_lower or kw_lower in existing_kw.lower():
-                    bv.set(True)
-            for existing_kw, bv in self.mood_toggles.items():
-                if existing_kw.lower() in kw_lower or kw_lower in existing_kw.lower():
-                    bv.set(True)
-        # 刷新风格格子按钮颜色（_fill_toggle_grid 现在会读取保存的 BoolVar 状态）
-        self._refresh_style_toggle_colors()
-        self._generate()
-        # 跳转到风格情绪页签
-        if self.nb and self.tab_style:
-            try:
-                self.nb.select(self.tab_style)
-            except Exception:
-                pass
-
-    def _extractor_clear_style(self):
-        """清除所有风格/美学/情绪词块的选中状态"""
-        for bv in self.style_toggles.values():
-            bv.set(False)
-        for bv in self.aesthetic_toggles.values():
-            bv.set(False)
-        for bv in self.mood_toggles.values():
-            bv.set(False)
-        self._refresh_style_toggle_colors()
-        self._generate()
 
 
     def _refresh_style_toggle_colors(self):
@@ -714,17 +371,6 @@ class CameraBuilder(tk.Toplevel):
             fill_toggle_grid(self, self._mood_grid, self.mood_toggles,
                                    MOOD_ANIME if self.is_anime.get() else MOOD_REAL, cols=4)
 
-    def _extractor_append_extra(self):
-        if self._extractor_selected_idx is None:
-            return
-        preset = self._extractor_presets[self._extractor_selected_idx]
-        keywords = preset.get("keywords", [])
-        if not keywords:
-            return
-        kw_str = ", ".join(keywords)
-        current = self.extra_var.get().strip()
-        self.extra_var.set((current + ", " + kw_str) if current else kw_str)
-        self._generate()
 
     # ── 模式切换 ────────────────────────────────────────────────
     def _toggle_mode(self):
@@ -923,7 +569,7 @@ class CameraBuilder(tk.Toplevel):
         if self.subject_angle_enabled.get():
             camera_terms.append(SUBJECT_ANGLE[self.subject_angle_var.get()][0])
         if self.light_dir_enabled.get():
-            kw = self._light_keyword()
+            kw = light_keyword(self.light_azimuth.get(), self.light_elevation.get(), self.light_color)
             if kw:
                 camera_terms.append(kw)
         if self.rim_light_var.get():
@@ -1008,7 +654,7 @@ class CameraBuilder(tk.Toplevel):
             kw, desc = SUBJECT_ANGLE[self.subject_angle_var.get()]
             camera_lines.append(f"【方位角】{desc.split('—')[0].strip()}")
         if self.light_dir_enabled.get():
-            kw = self._light_keyword()
+            kw = light_keyword(self.light_azimuth.get(), self.light_elevation.get(), self.light_color)
             if kw:
                 camera_lines.append(f"【主光源】{kw_to_zh(kw)}")
         if self.rim_light_var.get():
