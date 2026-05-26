@@ -171,6 +171,37 @@ def fill_toggle_grid(builder, grid_frame, toggles_dict, data, cols=4):
         btn.grid(row=row_i, column=col_i, padx=3, pady=2, sticky="ew")
         Tooltip(btn, f"{zh}\n{kw}\n点击选中/取消，选中后加入生成结果。")
 
+
+def refresh_style_blocks(builder) -> None:
+    refresh_style_toggle_colors(builder)
+
+
+def refresh_style_toggle_colors(builder) -> None:
+    if builder._style_grid and builder._style_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._style_grid,
+            builder.style_toggles,
+            STYLE_ANIME if builder.is_anime.get() else STYLE_REAL,
+            cols=4,
+        )
+    if builder._aesthetic_grid and builder._aesthetic_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._aesthetic_grid,
+            builder.aesthetic_toggles,
+            AESTHETIC_ANIME if builder.is_anime.get() else AESTHETIC_REAL,
+            cols=4,
+        )
+    if builder._mood_grid and builder._mood_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._mood_grid,
+            builder.mood_toggles,
+            MOOD_ANIME if builder.is_anime.get() else MOOD_REAL,
+            cols=4,
+        )
+
 def build_filter_tab(builder):
     builder.filter_toggles.clear()
     builder.filter_labels.clear()

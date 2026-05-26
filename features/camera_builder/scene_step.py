@@ -107,3 +107,34 @@ def fill_chips(builder, frame, target_text, chips):
             Tooltip(b, f"{chinese}\n英文：{output}\n点击追加到文本框。")
         else:
             Tooltip(b, f"{output}\n点击追加到文本框。")
+
+
+def refresh_subject_chips(builder) -> None:
+    if builder._subject_chips_frame and builder._subject_chips_frame.winfo_exists():
+        fill_chips(
+            builder,
+            builder._subject_chips_frame,
+            builder.subject_text,
+            SUBJECT_CHIPS_ANIME if builder.is_anime.get() else SUBJECT_CHIPS_REAL,
+        )
+    if builder._count_chips_frame and builder._count_chips_frame.winfo_exists():
+        fill_chips(
+            builder,
+            builder._count_chips_frame,
+            builder.subject_text,
+            SUBJECT_COUNT_ANIME if builder.is_anime.get() else SUBJECT_COUNT_REAL,
+        )
+    if builder._environ_chips_frame and builder._environ_chips_frame.winfo_exists():
+        fill_chips(
+            builder,
+            builder._environ_chips_frame,
+            builder.environ_text,
+            ENVIRONMENT_CHIPS_ANIME if builder.is_anime.get() else ENVIRONMENT_CHIPS_REAL,
+        )
+    if builder._weather_chips_frame and builder._weather_chips_frame.winfo_exists():
+        fill_chips(
+            builder,
+            builder._weather_chips_frame,
+            builder.environ_text,
+            WEATHER_CHIPS_ANIME if builder.is_anime.get() else WEATHER_CHIPS_REAL,
+        )

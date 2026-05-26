@@ -58,7 +58,8 @@ def apply_extractor_style(builder) -> None:
     _set_matches(builder.style_toggles, matches["style"])
     _set_matches(builder.aesthetic_toggles, matches["aesthetic"])
     _set_matches(builder.mood_toggles, matches["mood"])
-    builder._refresh_style_toggle_colors()
+    from features.camera_builder.style_step import refresh_style_toggle_colors
+    refresh_style_toggle_colors(builder)
     builder._generate()
     if builder.nb and builder.tab_style:
         try:
@@ -71,7 +72,8 @@ def clear_extractor_style(builder) -> None:
     for toggle_group in [builder.style_toggles, builder.aesthetic_toggles, builder.mood_toggles]:
         for bv in toggle_group.values():
             bv.set(False)
-    builder._refresh_style_toggle_colors()
+    from features.camera_builder.style_step import refresh_style_toggle_colors
+    refresh_style_toggle_colors(builder)
     builder._generate()
 
 

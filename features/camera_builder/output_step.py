@@ -96,3 +96,30 @@ def build_detail_tab(builder):
                             height=4)
     builder.neg_text.pack(fill=tk.X, padx=10, pady=(0, 10))
     builder.neg_text.bind("<KeyRelease>", lambda _e: builder._generate())
+
+
+def refresh_detail_blocks(builder) -> None:
+    if builder._quality_grid and builder._quality_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._quality_grid,
+            builder.quality_toggles,
+            QUALITY_CHIPS_ANIME if builder.is_anime.get() else QUALITY_CHIPS_REAL,
+            cols=4,
+        )
+    if builder._texture_grid and builder._texture_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._texture_grid,
+            builder.texture_toggles,
+            TEXTURE_ANIME if builder.is_anime.get() else TEXTURE_REAL,
+            cols=4,
+        )
+    if builder._color_grid and builder._color_grid.winfo_exists():
+        fill_toggle_grid(
+            builder,
+            builder._color_grid,
+            builder.color_toggles,
+            COLOR_SUPPLEMENT_ANIME if builder.is_anime.get() else COLOR_SUPPLEMENT_REAL,
+            cols=3,
+        )
