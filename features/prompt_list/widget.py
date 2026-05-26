@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 import tkinter.simpledialog
 import pyperclip
 
+from app.layout import MainLayoutSpec
 from core.services.prompt_service import PromptService
 from infrastructure.json_prompt_store import JsonPromptStore
 from shared.storage import DATA_FILE
@@ -38,6 +39,7 @@ class PromptTool(tk.Tk):
         self.check_vars      = {}
         self.compact_mode    = False
         self.topmost_mode    = False
+        self.layout_spec     = MainLayoutSpec.default()
 
         self._build_ui()
         self._refresh_buttons()
@@ -57,26 +59,32 @@ class PromptTool(tk.Tk):
         self.compact_btn = self._btn(toolbar, "🗂 精简模式", self._toggle_compact_mode, "#94e2d5")
         self.compact_btn.pack(side=tk.RIGHT)
         Tooltip(self.compact_btn, "🗂 精简模式\n收起主窗口，弹出一个迷你浮动列表，可拖动放置在屏幕任意位置，便于随时复制 Prompt。")
+        settings_btn = self._btn(toolbar, "⚙ 设置", self._ai_settings, BG_HOVER)
+        settings_btn.config(fg=FG_PRIMARY)
+        settings_btn.pack(side=tk.RIGHT, padx=(0, 6))
+        Tooltip(settings_btn, "⚙ 设置\n配置 AI 服务的 API Key、模型和接口地址。")
         help_btn = self._btn(toolbar, "❓ 帮助", self._open_help, BG_HOVER)
         help_btn.config(fg=FG_PRIMARY)
         help_btn.pack(side=tk.RIGHT, padx=(0, 6))
         Tooltip(help_btn, "❓ 帮助\n查看完整使用说明和功能介绍。")
 
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure("Main.Horizontal.TPanedwindow", background=BG_BASE)
+        workbench = tk.Frame(self, bg=BG_BASE)
+        workbench.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        workbench.grid_columnconfigure(0, weight=2, minsize=260)
+        workbench.grid_columnconfigure(1, weight=5, minsize=420)
+        workbench.grid_columnconfigure(2, weight=2, minsize=240)
+        workbench.grid_rowconfigure(0, weight=1)
 
-        self.paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL,
-                                     style="Main.Horizontal.TPanedwindow")
-        self.paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        self.left_pane  = tk.Frame(self.paned, bg=BG_BASE)
-        self.right_pane = tk.Frame(self.paned, bg="#181825")
-        self.paned.add(self.left_pane,  weight=1)
-        self.paned.add(self.right_pane, weight=3)
+        self.left_pane  = tk.Frame(workbench, bg=BG_BASE)
+        self.right_pane = tk.Frame(workbench, bg="#181825")
+        self.tools_pane = tk.Frame(workbench, bg=BG_BASE)
+        self.left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        self.right_pane.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
+        self.tools_pane.grid(row=0, column=2, sticky="nsew")
 
         self._build_left_pane()
         self._build_right_pane()
+        self._build_tools_pane()
 
     def _build_left_pane(self):
         tk.Label(self.left_pane, text="Prompt 列表", bg=BG_BASE, fg=FG_PRIMARY,
@@ -188,16 +196,56 @@ class PromptTool(tk.Tk):
         b_copy = self._btn(right_bottom, "📋 复制到剪切板",  self._copy_current,  ACCENT_CYAN  )
         b_copy.pack(side=tk.LEFT, padx=(0, 4))
         Tooltip(b_copy, "📋 复制到剪切板\n将右侧编辑区中的 Prompt 内容复制到剪贴板，可直接粘贴到 AI 生图工具中使用。")
-        b_ai = self._btn(right_bottom, "🤖 AI 优化",       self._ai_optimize,   ACCENT_PURPLE)
-        b_ai.pack(side=tk.LEFT, padx=(0, 4))
-        Tooltip(b_ai, "🤖 AI 优化\n打开 AI 协助优化窗口。可以对当前 Prompt 进行语法优化、扩写、中文转英文、生成多个变体等 10 余种 AI 操作。需要先在[AI 设置]中配置 API Key。")
-        b_set = self._btn(right_bottom, "⚙ AI 设置",        self._ai_settings,   BG_HOVER     )
-        b_set.pack(side=tk.LEFT)
-        Tooltip(b_set, "⚙ AI 设置\n配置 AI 服务的 API Key、模型和接口地址。支持 OpenAI 兼容格式的各类 AI 服务（如 DeepSeek、Qwen 等）。")
 
         self.status_label = tk.Label(right_bottom, text="", bg="#181825",
                                      fg=ACCENT_GREEN, font=("微软雅黑", 9))
         self.status_label.pack(side=tk.LEFT, padx=10)
+
+    def _build_tools_pane(self):
+        tk.Label(self.tools_pane, text="工作流工具", bg=BG_BASE, fg=FG_PRIMARY,
+                 font=("微软雅黑", 11, "bold")).pack(anchor="w", pady=(0, 6))
+
+        intro = tk.Label(
+            self.tools_pane,
+            text="围绕当前 Prompt 做生成、优化和配置。",
+            bg=BG_BASE,
+            fg=FG_MUTED,
+            font=("微软雅黑", 9),
+            justify=tk.LEFT,
+            wraplength=220,
+        )
+        intro.pack(anchor="w", fill=tk.X, pady=(0, 10))
+
+        def _tool_card(title, desc, command, color):
+            card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
+            card.pack(fill=tk.X, pady=(0, 8))
+            tk.Label(card, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
+                     font=("微软雅黑", 10, "bold")).pack(anchor="w")
+            tk.Label(card, text=desc, bg=BG_SURFACE, fg=FG_MUTED,
+                     font=("微软雅黑", 8), justify=tk.LEFT,
+                     wraplength=210).pack(anchor="w", fill=tk.X, pady=(4, 8))
+            btn = self._btn(card, "打开", command, color)
+            btn.pack(anchor="e")
+            return card
+
+        _tool_card(
+            "🤖 AI 优化",
+            "优化当前 Prompt、翻译、扩写或生成多个变体。",
+            self._ai_optimize,
+            ACCENT_PURPLE,
+        )
+        _tool_card(
+            "✨ 提示词生成器",
+            "通过主体、风格、镜头和输出参数生成高质量 Prompt。",
+            self._open_camera_builder,
+            ACCENT_GREEN,
+        )
+        _tool_card(
+            "⚙ AI 设置",
+            "配置 API Key、模型和兼容接口地址。",
+            self._ai_settings,
+            BG_HOVER,
+        )
 
     # ─────────────────────────────────────────────────────────────
     #  工具函数
