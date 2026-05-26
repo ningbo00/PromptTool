@@ -6,6 +6,7 @@ from tkinter import ttk, messagebox
 import tkinter.simpledialog
 import pyperclip
 
+from core.domain.prompt_library import PromptLibrary, PromptSelection
 from shared.storage import load_prompts, save_prompts
 from shared.ui_kit import (
     bind_mousewheel, Tooltip,
@@ -28,9 +29,11 @@ class PromptTool(tk.Tk):
         self.configure(bg=BG_BASE)
         self.resizable(True, True)
 
-        self.prompts         = load_prompts()
+        self.library         = PromptLibrary(load_prompts())
+        self.prompts         = self.library.prompts
         self.selected_index  = None
-        self.checked_indices = set()
+        self.selection       = PromptSelection()
+        self.checked_indices = self.selection.checked_indices
         self.check_vars      = {}
         self.compact_mode    = False
         self.topmost_mode    = False
@@ -208,6 +211,13 @@ class PromptTool(tk.Tk):
         self.status_label.config(text=msg)
         self.after(2000, lambda: self.status_label.config(text=""))
 
+    def _sync_prompts(self):
+        self.prompts = self.library.prompts
+        self.checked_indices = self.selection.checked_indices
+
+    def _save_library(self):
+        save_prompts(self.library.to_dicts())
+
     def _set_edit_mode(self, editable: bool):
         state = tk.NORMAL if editable else tk.DISABLED
         self.text_area.config(state=state,
@@ -237,13 +247,10 @@ class PromptTool(tk.Tk):
             w.destroy()
         self.check_vars.clear()
 
-        query = self.search_var.get().strip().lower()
-        if query == "搜索...":
-            query = ""
+        visible_indices = self.library.search(self.search_var.get())
 
-        for i, p in enumerate(self.prompts):
-            if query and query not in p["title"].lower() and query not in p["content"].lower():
-                continue
+        for i in visible_indices:
+            p = self.prompts[i]
 
             row = tk.Frame(self.btn_frame,
                            bg=BG_HOVER if i == self.selected_index else BG_CARD)
@@ -258,7 +265,7 @@ class PromptTool(tk.Tk):
                            command=lambda idx=i: self._toggle_check(idx)
                            ).pack(side=tk.LEFT, padx=(6, 4))
 
-            label = p["title"] if p["title"] else p["content"][:20] + "..."
+            label = p.display_label()
             btn = tk.Button(row, text=label, anchor="w",
                             bg=row.cget("bg"), fg=FG_PRIMARY, relief=tk.FLAT,
                             font=("微软雅黑", 9), padx=8, pady=6,
@@ -271,50 +278,36 @@ class PromptTool(tk.Tk):
     #  多选操作
     # ─────────────────────────────────────────────────────────────
     def _toggle_check(self, index):
-        if index in self.checked_indices:
-            self.checked_indices.remove(index)
-            if index in self.check_vars:
-                self.check_vars[index].set(False)
-        else:
-            self.checked_indices.add(index)
-            if index in self.check_vars:
-                self.check_vars[index].set(True)
+        self.selection.toggle(index)
+        self._sync_prompts()
+        if index in self.check_vars:
+            self.check_vars[index].set(index in self.checked_indices)
 
     def _reindex_checked_after_delete(self, deleted_index):
-        updated = set()
-        for idx in self.checked_indices:
-            if idx == deleted_index:
-                continue
-            updated.add(idx - 1 if idx > deleted_index else idx)
-        self.checked_indices = updated
+        self.selection.reindex_after_delete(deleted_index)
+        self._sync_prompts()
 
     def _swap_checked_indices(self, i, j):
-        updated = set()
-        for idx in self.checked_indices:
-            if idx == i:
-                updated.add(j)
-            elif idx == j:
-                updated.add(i)
-            else:
-                updated.add(idx)
-        self.checked_indices = updated
+        self.selection.swap_indices(i, j)
+        self._sync_prompts()
 
     def _copy_checked_prompts(self):
-        selected = [self.prompts[i]["content"]
-                    for i in range(len(self.prompts)) if i in self.checked_indices]
-        if not selected:
+        content = self.selection.join_checked_contents(self.library)
+        if not content:
             messagebox.showinfo("提示", "请先勾选至少一个 Prompt")
             return
-        pyperclip.copy("\n\n".join(selected))
-        self._flash_status(f"已拼接复制 {len(selected)} 条 ✓")
+        pyperclip.copy(content)
+        self._flash_status(f"已拼接复制 {len(self.checked_indices)} 条 ✓")
 
     def _select_all_prompts(self):
-        self.checked_indices = set(range(len(self.prompts)))
+        self.selection.select_all(self.library)
+        self._sync_prompts()
         self._refresh_buttons()
         self._flash_status("已全选 ✓")
 
     def _clear_checked_prompts(self):
-        self.checked_indices.clear()
+        self.selection.clear()
+        self._sync_prompts()
         self._refresh_buttons()
         self._flash_status("已清空选择 ✓")
 
@@ -325,19 +318,19 @@ class PromptTool(tk.Tk):
         self.selected_index = index
         p = self.prompts[index]
         self._set_edit_mode(False)
-        self.title_var.set(p["title"])
+        self.title_var.set(p.title)
         self.text_area.config(state=tk.NORMAL)
         self.text_area.delete("1.0", tk.END)
-        self.text_area.insert("1.0", p["content"])
+        self.text_area.insert("1.0", p.content)
         self.text_area.config(state=tk.DISABLED)
-        pyperclip.copy(p["content"])
+        pyperclip.copy(p.content)
         self._flash_status("已复制到剪切板 ✓")
         self._refresh_buttons()
 
     def _new_prompt(self):
-        self.prompts.append({"title": "新 Prompt", "content": ""})
-        save_prompts(self.prompts)
-        idx = len(self.prompts) - 1
+        idx = self.library.add_prompt(title="新 Prompt", content="")
+        self._sync_prompts()
+        self._save_library()
         self.selected_index = idx
         self._set_edit_mode(True)
         self.title_var.set("新 Prompt")
@@ -359,9 +352,9 @@ class PromptTool(tk.Tk):
             return
         title   = self.title_var.get().strip() or "未命名"
         content = self.text_area.get("1.0", tk.END).rstrip()
-        self.prompts[self.selected_index]["title"]   = title
-        self.prompts[self.selected_index]["content"] = content
-        save_prompts(self.prompts)
+        self.library.update_prompt(self.selected_index, title, content)
+        self._sync_prompts()
+        self._save_library()
         self._set_edit_mode(False)
         self._refresh_buttons()
         self._flash_status("已保存 ✓")
@@ -370,11 +363,12 @@ class PromptTool(tk.Tk):
         if self.selected_index is None:
             messagebox.showinfo("提示", "请先选择一个 Prompt")
             return
-        title = self.prompts[self.selected_index]["title"]
+        title = self.prompts[self.selected_index].title
         if not messagebox.askyesno("确认删除", f"确定要删除「{title}」吗？此操作不可撤销。"):
             return
         deleted_index = self.selected_index
-        self.prompts.pop(deleted_index)
+        self.library.delete_prompt(deleted_index)
+        self._sync_prompts()
         self._reindex_checked_after_delete(deleted_index)
         if self.prompts:
             self.selected_index = min(deleted_index, len(self.prompts) - 1)
@@ -387,7 +381,7 @@ class PromptTool(tk.Tk):
             self.text_area.delete("1.0", tk.END)
             self.text_area.config(state=tk.DISABLED)
             self._refresh_buttons()
-        save_prompts(self.prompts)
+        self._save_library()
         self._refresh_buttons()
 
     def _move(self, direction):
@@ -395,14 +389,14 @@ class PromptTool(tk.Tk):
             messagebox.showinfo("提示", "请先选择一个 Prompt")
             return
         i = self.selected_index
-        j = i + direction
-        if not (0 <= j < len(self.prompts)):
+        j = self.library.move_prompt(i, direction)
+        if j == i:
             self._flash_status("已经到边界了")
             return
-        self.prompts[i], self.prompts[j] = self.prompts[j], self.prompts[i]
         self._swap_checked_indices(i, j)
         self.selected_index = j
-        save_prompts(self.prompts)
+        self._sync_prompts()
+        self._save_library()
         self._refresh_buttons()
 
     def _copy_current(self):
@@ -498,7 +492,7 @@ class PromptTool(tk.Tk):
         for w in inner.winfo_children():
             w.destroy()
         for i, p in enumerate(self.prompts):
-            label = p["title"] if p["title"] else p["content"][:18] + "..."
+            label = p.display_label(18)
             tk.Button(inner, text=label, anchor="w",
                       bg=BG_HOVER if i == self.selected_index else BG_SURFACE,
                       fg=FG_PRIMARY, relief=tk.FLAT,
@@ -531,8 +525,9 @@ class PromptTool(tk.Tk):
         CameraBuilder(self, on_insert=self._insert_from_builder)
 
     def _insert_from_builder(self, title, content):
-        self.prompts.append({"title": title, "content": content})
-        save_prompts(self.prompts)
+        self.library.add_prompt(title=title, content=content)
+        self._sync_prompts()
+        self._save_library()
         self._select(len(self.prompts) - 1)
         self._flash_status(f"「{title}」已插入列表 ✓")
 
@@ -568,12 +563,13 @@ class PromptTool(tk.Tk):
         def _on_saveas(result):
             title = tkinter.simpledialog.askstring(
                 "另存为 Prompt", "请输入新 Prompt 的标题：",
-                initialvalue=self.prompts[self.selected_index]["title"] + " (AI优化)",
+                initialvalue=self.prompts[self.selected_index].title + " (AI优化)",
             )
             if title is None:
                 return
-            self.prompts.append({"title": title.strip() or "AI优化结果", "content": result})
-            save_prompts(self.prompts)
+            self.library.add_prompt(title=title.strip() or "AI优化结果", content=result)
+            self._sync_prompts()
+            self._save_library()
             self._refresh_buttons()
             self._flash_status(f"「{title.strip()}」已另存为新 Prompt ✓")
 

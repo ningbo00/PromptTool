@@ -30,6 +30,8 @@ class PromptLibrary:
 
     def search(self, query: str) -> list[int]:
         normalized = query.strip().lower()
+        if normalized == "搜索...":
+            normalized = ""
         if not normalized:
             return list(range(len(self.prompts)))
         return [

@@ -34,6 +34,12 @@ def test_library_search_matches_title_or_content_case_insensitive():
     assert library.search("camera") == [2]
 
 
+def test_library_search_treats_placeholder_as_empty_query():
+    library = PromptLibrary([Prompt("A", ""), Prompt("B", "")])
+
+    assert library.search("搜索...") == [0, 1]
+
+
 def test_library_add_save_update_and_delete_prompt():
     library = PromptLibrary()
 
@@ -90,6 +96,13 @@ def test_selection_toggle_select_all_clear_and_join_checked_prompts():
 
     assert copied == "first\n\nthird"
     assert selection.checked_indices == set()
+
+
+def test_selection_join_checked_contents_returns_empty_when_none_checked():
+    library = PromptLibrary([Prompt("A", "first")])
+    selection = PromptSelection()
+
+    assert selection.join_checked_contents(library) == ""
 
 
 def test_selection_reindexes_after_delete():
