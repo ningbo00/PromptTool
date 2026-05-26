@@ -26,6 +26,11 @@ from core.services.camera_prompt_service import (
     build_subject_scene_zh,
     resolve_preset_values,
 )
+from features.camera_builder.scene_step import create_scene_step
+from features.camera_builder.style_step import create_style_step
+from features.camera_builder.camera_step import create_camera_step
+from features.camera_builder.output_step import create_output_step
+from features.camera_builder.preview_panel import PreviewPanel
 from features.camera_builder.presets import (
     PARAMS_REAL, PARAMS_ANIME, FILTER_KEYWORDS,
     SHOT_SCALE, CAMERA_ELEVATION, SUBJECT_ANGLE,
@@ -212,39 +217,10 @@ class CameraBuilder(tk.Toplevel):
         self.nb = ttk.Notebook(parent, style="Dark.TNotebook")
         self.nb.pack(fill=tk.BOTH, expand=True)
 
-        step_scene = tk.Frame(self.nb, bg=BG_BASE)
-        step_style = tk.Frame(self.nb, bg=BG_BASE)
-        step_camera = tk.Frame(self.nb, bg=BG_BASE)
-        step_output = tk.Frame(self.nb, bg=BG_BASE)
-
-        self.nb.add(step_scene, text="1 场景")
-        self.nb.add(step_style, text="2 风格")
-        self.nb.add(step_camera, text="3 镜头")
-        self.nb.add(step_output, text="4 输出")
-
-        self.tab_subject = tk.Frame(step_scene, bg=BG_BASE)
-        self.tab_subject.pack(fill=tk.BOTH, expand=True)
-
-        style_nb = ttk.Notebook(step_style, style="Dark.TNotebook")
-        style_nb.pack(fill=tk.BOTH, expand=True)
-        self.tab_preset = tk.Frame(style_nb, bg=BG_BASE)
-        self.tab_style = tk.Frame(style_nb, bg=BG_BASE)
-        self.tab_filter = tk.Frame(style_nb, bg=BG_BASE)
-        self.tab_extractor = tk.Frame(style_nb, bg=BG_BASE)
-        style_nb.add(self.tab_preset, text="预设")
-        style_nb.add(self.tab_style, text="情绪")
-        style_nb.add(self.tab_filter, text="滤镜")
-        style_nb.add(self.tab_extractor, text="提炼")
-
-        camera_nb = ttk.Notebook(step_camera, style="Dark.TNotebook")
-        camera_nb.pack(fill=tk.BOTH, expand=True)
-        self.tab_params = tk.Frame(camera_nb, bg=BG_BASE)
-        self.tab_camera = tk.Frame(camera_nb, bg=BG_SURFACE)
-        camera_nb.add(self.tab_params, text="基础参数")
-        camera_nb.add(self.tab_camera, text="镜头位置")
-
-        self.tab_detail = tk.Frame(step_output, bg=BG_BASE)
-        self.tab_detail.pack(fill=tk.BOTH, expand=True)
+        create_scene_step(self.nb, self)
+        create_style_step(self.nb, self)
+        create_camera_step(self.nb, self)
+        create_output_step(self.nb, self)
 
         self._build_tab_preset()
         self._build_tab_params()
@@ -1812,33 +1788,17 @@ class CameraBuilder(tk.Toplevel):
 
         if self.preview_text is None:
             return
-        self.preview_text.config(state=tk.NORMAL)
-        self.preview_text.delete("1.0", tk.END)
-        self.preview_text.insert("1.0", base_prompt)
-        self.preview_text.config(state=tk.DISABLED)
-
-        if self.preview_zh_text is not None:
-            zh_text = self._build_prompt_zh()
-            self.preview_zh_text.config(state=tk.NORMAL)
-            self.preview_zh_text.delete("1.0", tk.END)
-            self.preview_zh_text.insert("1.0", zh_text)
-            self.preview_zh_text.config(state=tk.DISABLED)
-
-        if self.neg_preview_text is not None and self.neg_text is not None:
-            neg = self.neg_text.get("1.0", tk.END).strip()
-            self.neg_preview_text.config(state=tk.NORMAL)
-            self.neg_preview_text.delete("1.0", tk.END)
-            if neg:
-                self.neg_preview_text.insert("1.0", neg)
-            self.neg_preview_text.config(state=tk.DISABLED)
-
-            if self.neg_zh_preview_text is not None:
-                self.neg_zh_preview_text.config(state=tk.NORMAL)
-                self.neg_zh_preview_text.delete("1.0", tk.END)
-                if neg:
-                    zh_neg = self._build_negative_zh(neg)
-                    self.neg_zh_preview_text.insert("1.0", zh_neg)
-                self.neg_zh_preview_text.config(state=tk.DISABLED)
+        neg = self.neg_text.get("1.0", tk.END).strip() if self.neg_text is not None else ""
+        PreviewPanel.render(
+            preview_text=self.preview_text,
+            preview_zh_text=self.preview_zh_text,
+            neg_preview_text=self.neg_preview_text,
+            neg_zh_preview_text=self.neg_zh_preview_text,
+            prompt=base_prompt,
+            prompt_zh=self._build_prompt_zh(),
+            negative_text=neg,
+            negative_zh=self._build_negative_zh(neg) if neg else "",
+        )
 
     def _copy(self):
         import pyperclip
