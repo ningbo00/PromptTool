@@ -1,0 +1,28 @@
+# Python cache and local test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Runtime user data and secrets
+ai_config.json
+
+# Build and release artifacts
+build/
+dist/
+EXE/
+*.spec.tmp
+*.rar
+*.zip
+
+# Editor and OS files
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

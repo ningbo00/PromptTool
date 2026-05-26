@@ -16,12 +16,12 @@ else:
 AI_CONFIG_FILE = os.path.join(_BASE_DIR, "ai_config.json")
 
 # ── Kimi 默认值 ────────────────────────────────────────────────
-KIMI_API_KEY = "sk-kimi-ULjccYCKBbFZKXFsr3phpJZAmSBbrg561Ac4WhYeykcAHaER75cQKPPWXAlgzSWW"
+KIMI_API_KEY = ""
 KIMI_API_URL = "https://api.moonshot.cn/v1/chat/completions"
 KIMI_MODEL   = "kimi-k2.5"
 
 # ── 阿里百炼默认值 ─────────────────────────────────────────────
-BAILIAN_API_KEY = "sk-88ea095f249246adb3da8e338abcb664"
+BAILIAN_API_KEY = ""
 BAILIAN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 BAILIAN_MODEL   = "qwen-plus"
 
