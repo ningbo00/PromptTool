@@ -13,7 +13,10 @@ from shared.ui_kit import (
     ACCENT_PURPLE, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT, Tooltip,
 )
 from shared.config import get_ai_config
-from core.services.ai_optimize_actions import build_ai_optimize_messages
+from core.services.ai_optimize_service import (
+    AIOptimizeService,
+    AIOptimizeValidationError,
+)
 from features.ai_optimize.client import call_ai
 
 
@@ -64,6 +67,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._history      = []          # list[(direction, raw_result)]
         self._raw_result   = ""          # 当前结果的干净文本（无差异标注）
         self._busy         = False
+        self._ai_service   = AIOptimizeService(custom_direction_label=self.PRESETS[-1])
 
         # 控件引用（在 _build_ui 中赋值）
         self._orig_text       = None
@@ -93,22 +97,26 @@ class AIOptimizeDialog(tk.Toplevel):
     #  UI 骨架
     # ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # ── 行 1：预设 + 长度控制 + 历史 ──────────────────────────
-        row1 = tk.Frame(self, bg=BG_BASE)
-        row1.pack(fill=tk.X, padx=12, pady=(10, 2))
+        instruction_panel = tk.Frame(self, bg=BG_SURFACE, padx=10, pady=8)
+        instruction_panel.pack(fill=tk.X, padx=12, pady=(10, 6))
+        tk.Label(instruction_panel, text="指令", bg=BG_SURFACE, fg=FG_PRIMARY,
+                 font=("微软雅黑", 10, "bold")).pack(anchor="w", pady=(0, 6))
 
-        tk.Label(row1, text="优化方向:", bg=BG_BASE, fg=FG_MUTED,
+        row1 = tk.Frame(instruction_panel, bg=BG_SURFACE)
+        row1.pack(fill=tk.X, pady=(0, 4))
+
+        tk.Label(row1, text="优化方向:", bg=BG_SURFACE, fg=FG_MUTED,
                  font=("微软雅黑", 9)).pack(side=tk.LEFT)
         self._preset_var = tk.StringVar(value=self.PRESETS[0])
         ttk.Combobox(row1, textvariable=self._preset_var, values=self.PRESETS,
                      state="readonly", width=30, font=("微软雅黑", 9)
                      ).pack(side=tk.LEFT, padx=(6, 12))
 
-        tk.Label(row1, text="输出长度:", bg=BG_BASE, fg=FG_MUTED,
+        tk.Label(row1, text="输出长度:", bg=BG_SURFACE, fg=FG_MUTED,
                  font=("微软雅黑", 9)).pack(side=tk.LEFT)
         for lbl in ("简短", "中等", "详细"):
             tk.Radiobutton(row1, text=lbl, variable=self._length_var, value=lbl,
-                           bg=BG_BASE, fg=FG_PRIMARY, activebackground=BG_BASE,
+                           bg=BG_SURFACE, fg=FG_PRIMARY, activebackground=BG_SURFACE,
                            selectcolor=BG_CARD, font=("微软雅黑", 9)
                            ).pack(side=tk.LEFT, padx=(4, 0))
 
@@ -126,9 +134,9 @@ class AIOptimizeDialog(tk.Toplevel):
         self._history_menu.add_command(label="（暂无历史记录）", state=tk.DISABLED)
 
         # ── 行 2：自定义指令 ────────────────────────────────────────
-        row2 = tk.Frame(self, bg=BG_BASE)
-        row2.pack(fill=tk.X, padx=12, pady=(0, 4))
-        tk.Label(row2, text="自定义指令:", bg=BG_BASE, fg=FG_MUTED,
+        row2 = tk.Frame(instruction_panel, bg=BG_SURFACE)
+        row2.pack(fill=tk.X)
+        tk.Label(row2, text="自定义指令:", bg=BG_SURFACE, fg=FG_MUTED,
                  font=("微软雅黑", 9)).pack(side=tk.LEFT)
         self._custom_var = tk.StringVar()
         tk.Entry(row2, textvariable=self._custom_var, bg=BG_CARD, fg=FG_PRIMARY,
@@ -214,6 +222,8 @@ class AIOptimizeDialog(tk.Toplevel):
         # ── 底部固定区（状态栏 + 变体选择 + 关键词 + 评分 + 负面推荐，必须在 paned 前 pack） ──
         bottom_area = tk.Frame(self, bg=BG_BASE)
         bottom_area.pack(side=tk.BOTTOM, fill=tk.X)
+        tk.Label(bottom_area, text="Insights / 结果辅助", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(anchor="w", padx=12, pady=(4, 0))
 
         # ── 变体选择区（放在 bottom_area 最顶部，紧贴结果区下方） ──
         self._variant_frame = tk.Frame(bottom_area, bg=BG_BASE)
@@ -256,6 +266,13 @@ class AIOptimizeDialog(tk.Toplevel):
                                    wrap=tk.WORD, padx=8, pady=6, height=12,
                                    state=tk.DISABLED)
         self._score_text.pack(fill=tk.X, padx=6, pady=(2, 6))
+
+        body_header = tk.Frame(self, bg=BG_BASE)
+        body_header.pack(fill=tk.X, padx=12, pady=(0, 4))
+        tk.Label(body_header, text="输入", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(side=tk.LEFT)
+        tk.Label(body_header, text="结果", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(side=tk.RIGHT)
 
         # ── 主分割 ──────────────────────────────────────────────────
         paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -419,16 +436,16 @@ class AIOptimizeDialog(tk.Toplevel):
     #  主 AI 优化
     # ─────────────────────────────────────────────────────────────
     def _run_ai(self):
-        direction = self._preset_var.get()
-        if direction == "自定义指令（在下方输入）":
-            direction = self._custom_var.get().strip()
-            if not direction:
-                messagebox.showinfo("提示", "请在自定义指令栏输入具体指令", parent=self)
-                return
-
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "optimize_current",
+                original=self._get_orig(),
+                direction=self._preset_var.get(),
+                custom_direction=self._custom_var.get(),
+                length=self._length_var.get(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
 
         self._set_status("⏳ 正在请求 AI，请稍候…")
@@ -440,18 +457,12 @@ class AIOptimizeDialog(tk.Toplevel):
         self._clear_variant_ui()
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(
-            action="optimize_current",
-            original=original,
-            direction=direction,
-            length=self._length_var.get(),
-        )
 
         def _on_ok(text):
             def _show():
                 self._set_result(text)
                 self._enable_apply()
-                self._push_history(direction, text)
+                self._push_history(request.history_label, text)
                 self._set_busy(False)
                 self._show_result_zh(text, "✓ AI 优化完成")
                 if self._diff_var.get():
@@ -466,7 +477,8 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     # ─────────────────────────────────────────────────────────────
@@ -492,9 +504,10 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 2：AI 评分
     # ─────────────────────────────────────────────────────────────
     def _score(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action("score", original=self._get_orig())
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ AI 评分中…")
         self._score_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
@@ -504,7 +517,6 @@ class AIOptimizeDialog(tk.Toplevel):
         self._score_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(action="score", original=original)
 
         def _on_ok(text):
             def _show():
@@ -525,7 +537,7 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_status("✗ 评分失败")
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages, temperature=0.3,
+        call_ai(ai_url, ai_key, ai_model, request.messages, temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     # ─────────────────────────────────────────────────────────────
@@ -589,8 +601,13 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 4：中文转英文
     # ─────────────────────────────────────────────────────────────
     def _zh_to_en(self):
-        original = self._get_orig()
-        if not original:
+        try:
+            request = self._ai_service.prepare_action(
+                "zh_to_en",
+                original=self._get_orig(),
+                length=self._length_var.get(),
+            )
+        except AIOptimizeValidationError:
             messagebox.showinfo("提示", "请在原始框输入中文描述", parent=self)
             return
         self._set_status("⏳ 中文→英文 Prompt 生成中…")
@@ -601,17 +618,12 @@ class AIOptimizeDialog(tk.Toplevel):
         self._result_zh_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(
-            action="zh_to_en",
-            original=original,
-            length=self._length_var.get(),
-        )
 
         def _on_ok(text):
             def _show():
                 self._set_result(text)
                 self._enable_apply()
-                self._push_history("中文→英文", text)
+                self._push_history(request.history_label, text)
                 self._set_busy(False)
                 self._show_result_zh(text, "✓ 中文→英文 Prompt 已生成")
                 if self._diff_var.get():
@@ -626,20 +638,28 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     # ─────────────────────────────────────────────────────────────
     #  功能 5：生成 3 变体
     # ─────────────────────────────────────────────────────────────
     def _gen_variants(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "generate_variants",
+                original=self._get_orig(),
+                direction=self._preset_var.get(),
+                custom_direction=(
+                    self._custom_var.get().strip()
+                    or "优化英文语法和流畅度，保持原意"
+                ),
+                length=self._length_var.get(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
-        direction = self._preset_var.get()
-        if direction == "自定义指令（在下方输入）":
-            direction = self._custom_var.get().strip() or "优化英文语法和流畅度，保持原意"
 
         self._set_status("⏳ 生成 3 个变体中…")
         self._set_busy(True)
@@ -647,12 +667,6 @@ class AIOptimizeDialog(tk.Toplevel):
         self._clear_variant_ui()
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(
-            action="generate_variants",
-            original=original,
-            direction=direction,
-            length=self._length_var.get(),
-        )
 
         def _on_ok(text):
             def _show():
@@ -686,42 +700,12 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     def _parse_variants(self, text: str):
-        """解析 AI 返回的变体文本，支持多种常见格式。"""
-        import re
-        # 支持: [变体1] / 【变体1】 / **变体1** / Variant 1: / 1. 等格式
-        patterns = [
-            r'\[变体(\d)\]',
-            r'【变体(\d)】',
-            r'\*\*变体(\d)\*\*',
-            r'变体(\d)[：:．.]',
-            r'\[Variant\s*(\d)\]',
-            r'Variant\s*(\d)[：:．.]',
-        ]
-
-        for pat in patterns:
-            matches = list(re.finditer(pat, text, re.IGNORECASE))
-            if len(matches) >= 2:
-                parts = []
-                for idx, m in enumerate(matches):
-                    start = m.end()
-                    end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
-                    content = text[start:end].strip()
-                    if content:
-                        parts.append(content)
-                if len(parts) >= 2:
-                    return parts
-
-        # 最后尝试：按 numbered list 分割 (1. xxx\n2. xxx\n3. xxx)
-        numbered = re.split(r'\n\s*[123][.、)]\s*', text)
-        parts = [p.strip() for p in numbered if p.strip()]
-        if len(parts) >= 3:
-            return parts[:3]
-
-        return []
+        return self._ai_service.parse_variants(text)
 
     def _build_variant_ui(self):
         """在变体区渲染 RadioButton，self._variants 必须已填充。"""
@@ -878,18 +862,21 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 7：关键词提取
     # ─────────────────────────────────────────────────────────────
     def _extract_keywords(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "extract_keywords",
+                original=self._get_orig(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ 提取关键词中…")
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(action="extract_keywords", original=original)
 
         def _on_ok(text):
             def _show():
-                keywords = [k.strip() for k in text.split(",") if k.strip()]
+                keywords = self._ai_service.parse_keywords(text)
                 self._build_kw_ui(keywords)
                 self._set_status(f"✓ 提取到 {len(keywords)} 个关键词，点击可复制")
             self.after(0, _show)
@@ -897,7 +884,7 @@ class AIOptimizeDialog(tk.Toplevel):
         def _on_err(msg):
             self.after(0, lambda: self._set_status(f"✗ 提取失败: {msg[:40]}"))
 
-        call_ai(ai_url, ai_key, ai_model, messages, temperature=0.2,
+        call_ai(ai_url, ai_key, ai_model, request.messages, temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     def _build_kw_ui(self, keywords):
@@ -1068,14 +1055,17 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 12：负面词智能推荐
     # ────────────────────────────────────��────────────────────────
     def _recommend_negative(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "recommend_negative",
+                original=self._get_orig(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ AI 推荐负面词中…")
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(action="recommend_negative", original=original)
 
         def _on_ok(text):
             def _show():
@@ -1086,7 +1076,7 @@ class AIOptimizeDialog(tk.Toplevel):
         def _on_err(msg):
             self.after(0, lambda: self._set_status(f"✗ 负面词推荐失败: {msg[:40]}"))
 
-        call_ai(ai_url, ai_key, ai_model, messages, temperature=0.3,
+        call_ai(ai_url, ai_key, ai_model, request.messages, temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     def _build_neg_rec_ui(self, text: str):
@@ -1179,9 +1169,13 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 14：合规检验
     # ─────────────────────────────────────────────────────────────
     def _compliance_check(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "compliance_check",
+                original=self._get_orig(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ 合规检验中…")
         self._compliance_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
@@ -1230,7 +1224,6 @@ class AIOptimizeDialog(tk.Toplevel):
         self._compliance_raw = ""
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = build_ai_optimize_messages(action="compliance_check", original=original)
 
         def _on_ok(text):
             def _show():
@@ -1262,7 +1255,7 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_status("✗ 合规检验失败")
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages, temperature=0.2,
+        call_ai(ai_url, ai_key, ai_model, request.messages, temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     def _compliance_fix(self):
