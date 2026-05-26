@@ -101,3 +101,29 @@ def test_service_search_delegates_to_library():
     )
 
     assert service.search("second") == [1]
+
+
+def test_service_exposes_library_status():
+    service = PromptService(
+        InMemoryPromptStore([Prompt("A", "first"), Prompt("B", "second")])
+    )
+
+    service.toggle_checked(1)
+
+    assert service.status_summary(selected_index=0) == {
+        "total": 2,
+        "checked": 1,
+        "selected": True,
+        "selected_index": 0,
+    }
+
+
+def test_service_status_summary_marks_missing_selection():
+    service = PromptService(InMemoryPromptStore([Prompt("A", "first")]))
+
+    assert service.status_summary(selected_index=None) == {
+        "total": 1,
+        "checked": 0,
+        "selected": False,
+        "selected_index": None,
+    }

@@ -53,5 +53,13 @@ class PromptService:
     def join_checked_contents(self) -> str:
         return self.selection.join_checked_contents(self.library)
 
+    def status_summary(self, selected_index: int | None) -> dict:
+        return {
+            "total": len(self.library.prompts),
+            "checked": len(self.selection.checked_indices),
+            "selected": selected_index is not None,
+            "selected_index": selected_index,
+        }
+
     def _persist(self) -> None:
         self.store.save(self.library.prompts)

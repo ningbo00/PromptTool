@@ -87,8 +87,13 @@ class PromptTool(tk.Tk):
         self._build_tools_pane()
 
     def _build_left_pane(self):
-        tk.Label(self.left_pane, text="Prompt 列表", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 11, "bold")).pack(anchor="w", pady=(0, 6))
+        header = tk.Frame(self.left_pane, bg=BG_BASE)
+        header.pack(fill=tk.X, pady=(0, 6))
+        tk.Label(header, text="Prompt 库", bg=BG_BASE, fg=FG_PRIMARY,
+                 font=("微软雅黑", 11, "bold")).pack(side=tk.LEFT)
+        self.library_status_label = tk.Label(header, text="", bg=BG_BASE,
+                                             fg=FG_MUTED, font=("微软雅黑", 8))
+        self.library_status_label.pack(side=tk.RIGHT)
 
         # 搜索框
         self.search_var = tk.StringVar()
@@ -152,19 +157,21 @@ class PromptTool(tk.Tk):
 
         r3 = _group("批量")
         b_copy_checked = self._btn(r3, "☑ 拼接复制", self._copy_checked_prompts,  ACCENT_CYAN  )
-        b_copy_checked.pack(side=tk.LEFT, padx=(0, 4))
+        b_copy_checked.pack(side=tk.TOP, anchor="w", fill=tk.X, pady=(0, 4))
         Tooltip(b_copy_checked, "☑ 拼接复制\n将所有勾选的 Prompt 内容拼接（用空行分隔），一次性复制到剪贴板，适合组合使用多个 Prompt。")
-        b_selall = self._btn(r3, "全选",        self._select_all_prompts,    "#74c7ec"    )
+        batch_row = tk.Frame(r3, bg=BG_SURFACE)
+        batch_row.pack(fill=tk.X)
+        b_selall = self._btn(batch_row, "全选",        self._select_all_prompts,    "#74c7ec"    )
         b_selall.pack(side=tk.LEFT, padx=(0, 4))
         Tooltip(b_selall, "全选\n勾选列表中的所有 Prompt。")
-        b_clrsel = self._btn(r3, "清空选择",    self._clear_checked_prompts, "#9399b2"    )
+        b_clrsel = self._btn(batch_row, "清空选择",    self._clear_checked_prompts, "#9399b2"    )
         b_clrsel.pack(side=tk.LEFT)
         Tooltip(b_clrsel, "清空选择\n取消所有 Prompt 的勾选状态。")
 
     def _build_right_pane(self):
         header = tk.Frame(self.right_pane, bg="#181825")
         header.pack(fill=tk.X, pady=(0, 6))
-        self.edit_mode_label = tk.Label(header, text="预览", bg="#181825", fg=FG_PRIMARY,
+        self.edit_mode_label = tk.Label(header, text="未选择 Prompt", bg="#181825", fg=FG_PRIMARY,
                                         font=("微软雅黑", 11, "bold"))
         self.edit_mode_label.pack(side=tk.LEFT)
 
@@ -217,7 +224,7 @@ class PromptTool(tk.Tk):
         tk.Label(self.tools_pane, text="主要工作流", bg=BG_BASE, fg=FG_MUTED,
                  font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
 
-        def _tool_card(title, desc, command, color):
+        def _tool_card(title, desc, action_text, command, color):
             card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
             card.pack(fill=tk.X, pady=(0, 8))
             tk.Label(card, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
@@ -225,19 +232,21 @@ class PromptTool(tk.Tk):
             tk.Label(card, text=desc, bg=BG_SURFACE, fg=FG_MUTED,
                      font=("微软雅黑", 8), justify=tk.LEFT,
                      wraplength=210).pack(anchor="w", fill=tk.X, pady=(4, 8))
-            btn = self._btn(card, "打开", command, color)
+            btn = self._btn(card, action_text, command, color)
             btn.pack(anchor="e")
             return card
 
         _tool_card(
             "🤖 AI 优化",
-            "优化当前 Prompt、翻译、扩写或生成多个变体。",
+            "需要先选择当前 Prompt；可优化、翻译、扩写或生成多个变体。",
+            "优化当前",
             self._ai_optimize,
             ACCENT_PURPLE,
         )
         _tool_card(
             "✨ 提示词生成器",
-            "通过主体、风格、镜头和输出参数生成高质量 Prompt。",
+            "通过主体、风格、镜头和输出参数生成 Prompt，并插入列表。",
+            "开始生成",
             self._open_camera_builder,
             ACCENT_GREEN,
         )
@@ -247,12 +256,14 @@ class PromptTool(tk.Tk):
         _tool_card(
             "⚙ AI 设置",
             "配置 API Key、模型和兼容接口地址。",
+            "配置",
             self._ai_settings,
             BG_HOVER,
         )
         _tool_card(
             "❓ 帮助",
             "查看功能说明和常见操作提示。",
+            "查看",
             self._open_help,
             BG_HOVER,
         )
@@ -273,6 +284,16 @@ class PromptTool(tk.Tk):
     def _sync_prompts(self):
         self.prompts = self.prompt_service.prompts
         self.checked_indices = self.prompt_service.checked_indices
+        self._refresh_library_status()
+
+    def _refresh_library_status(self):
+        if not hasattr(self, "library_status_label"):
+            return
+        status = self.prompt_service.status_summary(self.selected_index)
+        selected = "已选择" if status["selected"] else "未选择"
+        self.library_status_label.config(
+            text=f"{status['total']} 条 / 勾选 {status['checked']} / {selected}"
+        )
 
     def _set_edit_mode(self, editable: bool):
         state = tk.NORMAL if editable else tk.DISABLED
@@ -280,7 +301,12 @@ class PromptTool(tk.Tk):
                               bg=BG_CARD if editable else BG_SURFACE,
                               fg=FG_PRIMARY if editable else FG_MUTED)
         self.title_entry.config(state=state)
-        self.edit_mode_label.config(text="编辑中..." if editable else "预览")
+        self.edit_mode_label.config(
+            text="编辑中..." if editable else self._preview_title()
+        )
+
+    def _preview_title(self):
+        return "预览当前 Prompt" if self.selected_index is not None else "未选择 Prompt"
 
     # ─────────────────────────────────────────────────────────────
     #  搜索栏
@@ -377,8 +403,8 @@ class PromptTool(tk.Tk):
 
     def _new_prompt(self):
         idx = self.prompt_service.add_prompt(title="新 Prompt", content="")
-        self._sync_prompts()
         self.selected_index = idx
+        self._sync_prompts()
         self._set_edit_mode(True)
         self.title_var.set("新 Prompt")
         self.text_area.delete("1.0", tk.END)
@@ -414,12 +440,12 @@ class PromptTool(tk.Tk):
             return
         deleted_index = self.selected_index
         self.prompt_service.delete_prompt(deleted_index)
-        self._sync_prompts()
         if self.prompts:
             self.selected_index = min(deleted_index, len(self.prompts) - 1)
             self._select(self.selected_index)
         else:
             self.selected_index = None
+            self._sync_prompts()
             self._set_edit_mode(False)
             self.title_var.set("")
             self.text_area.config(state=tk.NORMAL)
