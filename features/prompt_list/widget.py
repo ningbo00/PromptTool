@@ -7,7 +7,8 @@ import tkinter.simpledialog
 import pyperclip
 
 from core.domain.prompt_library import PromptLibrary, PromptSelection
-from shared.storage import load_prompts, save_prompts
+from infrastructure.json_prompt_store import JsonPromptStore
+from shared.storage import DATA_FILE
 from shared.ui_kit import (
     bind_mousewheel, Tooltip,
     BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
@@ -29,7 +30,8 @@ class PromptTool(tk.Tk):
         self.configure(bg=BG_BASE)
         self.resizable(True, True)
 
-        self.library         = PromptLibrary(load_prompts())
+        self.prompt_store    = JsonPromptStore(DATA_FILE)
+        self.library         = self.prompt_store.load()
         self.prompts         = self.library.prompts
         self.selected_index  = None
         self.selection       = PromptSelection()
@@ -216,7 +218,7 @@ class PromptTool(tk.Tk):
         self.checked_indices = self.selection.checked_indices
 
     def _save_library(self):
-        save_prompts(self.library.to_dicts())
+        self.prompt_store.save(self.library.prompts)
 
     def _set_edit_mode(self, editable: bool):
         state = tk.NORMAL if editable else tk.DISABLED
