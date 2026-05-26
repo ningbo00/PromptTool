@@ -1,0 +1,46 @@
+[
+  {
+    "title": "通用助手",
+    "content": "你是一个专业的 AI 助手，请根据用户需求给出准确、清晰、结构化的中文回答。优先直接解决问题，必要时再补充说明与示例。"
+  },
+  {
+    "title": "代码审查",
+    "content": "请对以下代码进行审查，重点检查：1）潜在 bug；2）性能问题；3）可维护性；4）安全风险。请按“问题 - 原因 - 修改建议”的格式输出，并给出必要的示例代码。\n\n[在此粘贴代码]"
+  },
+  {
+    "title": "翻译助手",
+    "content": "请将以下内容翻译成自然、准确、流畅的中文，并尽量保留原文语气、风格和信息层次。若存在术语，请统一译法。\n\n[在此粘贴要翻译的内容]"
+  },
+  {
+    "title": "📷 人像摄影",
+    "content": "portrait photography, 85mm, f/1.8, shallow depth of field, soft bokeh, natural skin texture, Rembrandt lighting, eye-level shot, shot on Sony A7IV, photorealistic, high detail"
+  },
+  {
+    "title": "🌄 风景摄影",
+    "content": "landscape photography, 24mm wide angle, f/11, deep depth of field, golden hour lighting, dramatic sky, tripod shot, highly detailed, photorealistic, natural colors"
+  },
+  {
+    "title": "🎬 电影感镜头",
+    "content": "cinematic shot, 35mm, shallow depth of field, anamorphic lens flare, moody lighting, film grain, 2.39:1 aspect ratio, teal and orange color grade, photorealistic"
+  },
+  {
+    "title": "🌆 城市夜景",
+    "content": "urban night photography, 24mm, f/2.8, ISO 3200, neon reflections, wet pavement, city lights bokeh, cinematic atmosphere, high detail, photorealistic"
+  },
+  {
+    "title": "📷 摄影机设置",
+    "content": "85mm, f/4, ISO 100, 1/30s, low angle, symmetrical, deep depth of field, shot on Leica M11, natural light, teal and orange, 16:9, 4K"
+  },
+  {
+    "title": "饮食男女",
+    "content": "35mm, f/4, ISO 400, 1/125s, dutch angle, handheld, anamorphic 2.39:1, rule of thirds, deep depth of field, shot on Arri Alexa Mini, natural light, warm tones, 16:9, photorealistic, close-up, Ang Lee cinematography style, colorful dish arrangement, steam and cooking atmosphere, warm natural light, rich color palette"
+  },
+  {
+    "title": "📷 摄影机设置",
+    "content": "14mm, f/1.2, ISO 100, 1/4000s, dutch angle, handheld, anamorphic 2.39:1, rule of thirds, shallow depth of field, shot on Sony A7IV, natural light, teal and orange, 16:9, 4K, close-up, glitch art"
+  },
+  {
+    "title": "📷 摄影机设置",
+    "content": "low angle anime, cel shading, Gainax style, dramatic shadow, dark fantasy, 紧张震撼, 4:3, ultra detailed, official art, close-up, Hideaki Anno visual style, stark industrial architecture, harsh fluorescent interior light, desaturated concrete environment, heavy shadow contrast"
+  }
+]
