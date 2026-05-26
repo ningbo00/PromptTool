@@ -123,7 +123,26 @@ class AIOptimizeService:
                 groups.append((label.strip(), words))
         return groups
 
+    def build_diff(self, original: str, result: str) -> dict:
+        original_words = self._split_prompt_words(original)
+        result_words = self._split_prompt_words(result)
+        original_set = {word.lower() for word in original_words}
+        result_set = {word.lower() for word in result_words}
+        return {
+            "result_words": [
+                (word, "normal" if word.lower() in original_set else "added")
+                for word in result_words
+            ],
+            "removed_words": [
+                word for word in original_words if word.lower() not in result_set
+            ],
+        }
+
     def _history_label(self, action: str, direction: str) -> str:
         if action == "optimize_current":
             return direction
         return self._HISTORY_LABELS.get(action, action)
+
+    @staticmethod
+    def _split_prompt_words(text: str) -> list[str]:
+        return [word.strip() for word in text.split(",") if word.strip()]

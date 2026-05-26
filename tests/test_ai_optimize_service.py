@@ -105,6 +105,19 @@ def test_parse_negative_groups():
     ]
 
 
+def test_build_diff_marks_added_and_removed_words():
+    service = AIOptimizeService()
+
+    diff = service.build_diff("cat, soft light, forest", "cat, cinematic, forest")
+
+    assert diff["result_words"] == [
+        ("cat", "normal"),
+        ("cinematic", "added"),
+        ("forest", "normal"),
+    ]
+    assert diff["removed_words"] == ["soft light"]
+
+
 def test_prepare_improve_by_score_requires_feedback():
     service = AIOptimizeService()
 

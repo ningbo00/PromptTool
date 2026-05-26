@@ -184,27 +184,11 @@ class AIOptimizeDialog(tk.Toplevel):
 
         # ── 评分区（动态显示） ─────────────────────────────────────
         self._score_frame = tk.Frame(bottom_area, bg=BG_BASE)
-        score_hdr = tk.Frame(self._score_frame, bg=BG_BASE)
-        score_hdr.pack(fill=tk.X, padx=6)
-        tk.Label(score_hdr, text="🎯 AI 评分与建议", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        self._improve_btn = tk.Button(
-            score_hdr, text="⚡ 按建议优化", command=self._improve_by_score,
-            bg=ACCENT_ORANGE, fg=DARK_TEXT, relief=tk.FLAT,
-            font=("微软雅黑", 8, "bold"), padx=8, pady=1,
-            cursor="hand2", activebackground=ACCENT_ORANGE, state=tk.DISABLED,
+        self._score_text, self._improve_btn = InsightsPanel.build_score(
+            self._score_frame,
+            self._improve_by_score,
+            self._score_frame.pack_forget,
         )
-        self._improve_btn.pack(side=tk.RIGHT, padx=(0, 6))
-        Tooltip(self._improve_btn, "⚡ 按建议优化\n让 AI 参考上方的评分建议，对原始 Prompt 进行针对性优化，结果输出到右侧结果区。")
-        tk.Button(score_hdr, text="✕", command=self._score_frame.pack_forget,
-                  bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
-                  font=("微软雅黑", 8), padx=4, pady=0,
-                  cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
-        self._score_text = tk.Text(self._score_frame, bg=BG_SURFACE, fg=ACCENT_YELLOW,
-                                   relief=tk.FLAT, font=("微软雅黑", 9),
-                                   wrap=tk.WORD, padx=8, pady=6, height=12,
-                                   state=tk.DISABLED)
-        self._score_text.pack(fill=tk.X, padx=6, pady=(2, 6))
 
         body_header = tk.Frame(self, bg=BG_BASE)
         body_header.pack(fill=tk.X, padx=12, pady=(0, 4))
@@ -290,10 +274,7 @@ class AIOptimizeDialog(tk.Toplevel):
     def _set_result(self, text: str):
         """写入结果文本框，同时更新 _raw_result。"""
         self._raw_result = text
-        self._result_text.config(state=tk.NORMAL)
-        self._result_text.delete("1.0", tk.END)
-        self._result_text.insert("1.0", text)
-        self._result_text.config(state=tk.DISABLED)
+        ResultPanel.set_plain_text(self._result_text, text)
 
     def _set_status(self, msg: str, delay_clear: int = 0):
         self._status_lbl.config(text=msg)
@@ -872,10 +853,7 @@ class AIOptimizeDialog(tk.Toplevel):
             self._apply_diff_highlight()
         else:
             # 关闭时恢复干净文本
-            self._result_text.config(state=tk.NORMAL)
-            self._result_text.delete("1.0", tk.END)
-            self._result_text.insert("1.0", self._raw_result)
-            self._result_text.config(state=tk.DISABLED)
+            ResultPanel.set_plain_text(self._result_text, self._raw_result)
 
     def _apply_diff_highlight(self):
         orig   = self._get_orig()
@@ -883,30 +861,10 @@ class AIOptimizeDialog(tk.Toplevel):
         if not result or result.startswith("（") or result.startswith("["):
             return
 
-        orig_words = [w.strip() for w in orig.split(",")   if w.strip()]
-        res_words  = [w.strip() for w in result.split(",") if w.strip()]
-        orig_set   = {w.lower() for w in orig_words}
-        res_set    = {w.lower() for w in res_words}
-
-        self._result_text.config(state=tk.NORMAL)
-        self._result_text.delete("1.0", tk.END)
-
-        for i, word in enumerate(res_words):
-            tag = "added" if word.lower() not in orig_set else "normal"
-            self._result_text.insert(tk.END, word, tag)
-            if i < len(res_words) - 1:
-                self._result_text.insert(tk.END, ", ")
-
-        removed = [w for w in orig_words if w.lower() not in res_set]
-        if removed:
-            self._result_text.insert(tk.END, "\n\n[已移除: ")
-            for i, w in enumerate(removed):
-                self._result_text.insert(tk.END, w, "removed")
-                if i < len(removed) - 1:
-                    self._result_text.insert(tk.END, ", ")
-            self._result_text.insert(tk.END, "]")
-
-        self._result_text.config(state=tk.DISABLED)
+        ResultPanel.render_diff(
+            self._result_text,
+            self._ai_service.build_diff(orig, result),
+        )
 
     # ─────────────────────────────────────────────────────────────
     #  功能 10：直接复制结果
@@ -1041,49 +999,12 @@ class AIOptimizeDialog(tk.Toplevel):
             messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ 合规检验中…")
-        self._compliance_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
-        for w in self._compliance_frame.winfo_children():
-            w.destroy()
-
-        # 标题行
-        hdr = tk.Frame(self._compliance_frame, bg=BG_BASE)
-        hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="🛡 合规检验结果", bg=BG_BASE, fg="#94e2d5",
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        tk.Button(hdr, text="✕ 关闭", command=self._compliance_frame.pack_forget,
-                  bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
-                  font=("微软雅黑", 8), padx=4, pady=0,
-                  cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
-
-        self._compliance_text = tk.Text(
-            self._compliance_frame, bg=BG_SURFACE, fg="#94e2d5",
-            relief=tk.FLAT, font=("微软雅黑", 9),
-            wrap=tk.WORD, padx=8, pady=6, height=6,
-            state=tk.DISABLED,
+        self._compliance_text, self._compliance_fix_btn = InsightsPanel.build_compliance(
+            self._compliance_frame,
+            self._compliance_fix,
+            self._compliance_frame.pack_forget,
         )
-        self._compliance_text.pack(fill=tk.X, padx=6, pady=(4, 4))
-        self._compliance_text.tag_config("violation", foreground=ACCENT_RED, font=("微软雅黑", 9, "bold"))
-        self._compliance_text.tag_config("warning",   foreground=ACCENT_YELLOW)
-        self._compliance_text.tag_config("ok",        foreground=ACCENT_GREEN)
-        self._compliance_text.tag_config("normal",    foreground="#94e2d5")
-
-        self._compliance_text.config(state=tk.NORMAL)
-        self._compliance_text.delete("1.0", tk.END)
-        self._compliance_text.insert("1.0", "（检验中…）")
-        self._compliance_text.config(state=tk.DISABLED)
-
-        # 按建议修复按钮
-        fix_row = tk.Frame(self._compliance_frame, bg=BG_BASE)
-        fix_row.pack(fill=tk.X, padx=6, pady=(0, 6))
-        self._compliance_fix_btn = tk.Button(
-            fix_row, text="⚡ 按建议修复 Prompt", command=self._compliance_fix,
-            bg=ACCENT_ORANGE, fg=DARK_TEXT, relief=tk.FLAT,
-            font=("微软雅黑", 8, "bold"), padx=10, pady=2,
-            cursor="hand2", activebackground=ACCENT_ORANGE, state=tk.DISABLED,
-        )
-        self._compliance_fix_btn.pack(side=tk.LEFT)
-        Tooltip(self._compliance_fix_btn,
-                "⚡ 按建议修复\n让 AI 根据合规检验结果，将违规词替换为安全的近义词，修复后填入结果区。")
+        ResultPanel.set_plain_text(self._compliance_text, "（检验中…）")
         self._compliance_raw = ""
 
         ai_url, ai_key, ai_model = get_ai_config()
@@ -1091,30 +1012,14 @@ class AIOptimizeDialog(tk.Toplevel):
         def _on_ok(text):
             def _show():
                 self._compliance_raw = text
-                self._compliance_text.config(state=tk.NORMAL)
-                self._compliance_text.delete("1.0", tk.END)
-                # 简单高亮：含"违规"/"风险"/"禁止"行用红色
-                for line in text.split("\n"):
-                    low = line.lower()
-                    if any(k in line for k in ["违规", "风险", "禁止", "敏感", "❌"]):
-                        self._compliance_text.insert(tk.END, line + "\n", "violation")
-                    elif "建议" in line or "修复" in line or "替换" in line:
-                        self._compliance_text.insert(tk.END, line + "\n", "warning")
-                    elif "通过" in line or "无需" in line or "✅" in line:
-                        self._compliance_text.insert(tk.END, line + "\n", "ok")
-                    else:
-                        self._compliance_text.insert(tk.END, line + "\n", "normal")
-                self._compliance_text.config(state=tk.DISABLED)
+                InsightsPanel.render_compliance(self._compliance_text, text)
                 self._compliance_fix_btn.config(state=tk.NORMAL)
                 self._set_status("✓ 合规检验完成")
             self.after(0, _show)
 
         def _on_err(msg):
             def _show():
-                self._compliance_text.config(state=tk.NORMAL)
-                self._compliance_text.delete("1.0", tk.END)
-                self._compliance_text.insert("1.0", f"[检验失败]\n{msg}", "violation")
-                self._compliance_text.config(state=tk.DISABLED)
+                InsightsPanel.render_compliance(self._compliance_text, f"[检验失败]\n{msg}")
                 self._set_status("✗ 合规检验失败")
             self.after(0, _show)
 

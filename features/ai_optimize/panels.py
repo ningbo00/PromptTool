@@ -106,6 +106,32 @@ class ResultPanel:
         Tooltip(copy_btn, "📋 复制结果\n直接将右侧 AI 结果复制到剪贴板。")
         return header
 
+    @staticmethod
+    def set_plain_text(text_widget, text):
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+        text_widget.insert("1.0", text)
+        text_widget.config(state=tk.DISABLED)
+
+    @staticmethod
+    def render_diff(text_widget, diff):
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+        result_words = diff["result_words"]
+        for index, (word, tag) in enumerate(result_words):
+            text_widget.insert(tk.END, word, tag)
+            if index < len(result_words) - 1:
+                text_widget.insert(tk.END, ", ")
+        removed_words = diff["removed_words"]
+        if removed_words:
+            text_widget.insert(tk.END, "\n\n[已移除: ")
+            for index, word in enumerate(removed_words):
+                text_widget.insert(tk.END, word, "removed")
+                if index < len(removed_words) - 1:
+                    text_widget.insert(tk.END, ", ")
+            text_widget.insert(tk.END, "]")
+        text_widget.config(state=tk.DISABLED)
+
 
 class InsightsPanel:
     def __init__(self, parent):
@@ -130,6 +156,75 @@ class InsightsPanel:
                     cursor="hand2", activebackground=ACCENT_BLUE,
                     command=lambda value=keyword: on_copy(value),
                 ).pack(side=tk.LEFT, padx=(0, 4))
+
+    @staticmethod
+    def build_score(frame, on_improve, on_close):
+        score_header = tk.Frame(frame, bg=BG_BASE)
+        score_header.pack(fill=tk.X, padx=6)
+        tk.Label(score_header, text="🎯 AI 评分与建议", bg=BG_BASE, fg=ACCENT_YELLOW,
+                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
+        improve_button = tk.Button(
+            score_header, text="⚡ 按建议优化", command=on_improve,
+            bg=ACCENT_ORANGE, fg=DARK_TEXT, relief=tk.FLAT,
+            font=("微软雅黑", 8, "bold"), padx=8, pady=1,
+            cursor="hand2", activebackground=ACCENT_ORANGE, state=tk.DISABLED,
+        )
+        improve_button.pack(side=tk.RIGHT, padx=(0, 6))
+        Tooltip(improve_button, "⚡ 按建议优化\n让 AI 参考评分建议，对原始 Prompt 进行针对性优化。")
+        tk.Button(score_header, text="✕", command=on_close,
+                  bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
+                  font=("微软雅黑", 8), padx=4, pady=0,
+                  cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
+        score_text = tk.Text(frame, bg=BG_SURFACE, fg=ACCENT_YELLOW,
+                             relief=tk.FLAT, font=("微软雅黑", 9),
+                             wrap=tk.WORD, padx=8, pady=6, height=12,
+                             state=tk.DISABLED)
+        score_text.pack(fill=tk.X, padx=6, pady=(2, 6))
+        return score_text, improve_button
+
+    @staticmethod
+    def build_compliance(frame, on_fix, on_close):
+        _clear_and_show(frame)
+        header = _header(frame, "🛡 合规检验结果", "#94e2d5", on_close)
+        header.pack(fill=tk.X)
+        compliance_text = tk.Text(
+            frame, bg=BG_SURFACE, fg="#94e2d5",
+            relief=tk.FLAT, font=("微软雅黑", 9),
+            wrap=tk.WORD, padx=8, pady=6, height=6,
+            state=tk.DISABLED,
+        )
+        compliance_text.pack(fill=tk.X, padx=6, pady=(4, 4))
+        compliance_text.tag_config("violation", foreground=ACCENT_RED, font=("微软雅黑", 9, "bold"))
+        compliance_text.tag_config("warning", foreground=ACCENT_YELLOW)
+        compliance_text.tag_config("ok", foreground=ACCENT_GREEN)
+        compliance_text.tag_config("normal", foreground="#94e2d5")
+        fix_row = tk.Frame(frame, bg=BG_BASE)
+        fix_row.pack(fill=tk.X, padx=6, pady=(0, 6))
+        fix_button = tk.Button(
+            fix_row, text="⚡ 按建议修复 Prompt", command=on_fix,
+            bg=ACCENT_ORANGE, fg=DARK_TEXT, relief=tk.FLAT,
+            font=("微软雅黑", 8, "bold"), padx=10, pady=2,
+            cursor="hand2", activebackground=ACCENT_ORANGE, state=tk.DISABLED,
+        )
+        fix_button.pack(side=tk.LEFT)
+        Tooltip(fix_button, "⚡ 按建议修复\n根据合规检验结果修复 Prompt。")
+        return compliance_text, fix_button
+
+    @staticmethod
+    def render_compliance(text_widget, text):
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+        for line in text.split("\n"):
+            if any(keyword in line for keyword in ["违规", "风险", "禁止", "敏感", "❌"]):
+                tag = "violation"
+            elif "建议" in line or "修复" in line or "替换" in line:
+                tag = "warning"
+            elif "通过" in line or "无需" in line or "✅" in line:
+                tag = "ok"
+            else:
+                tag = "normal"
+            text_widget.insert(tk.END, line + "\n", tag)
+        text_widget.config(state=tk.DISABLED)
 
     @staticmethod
     def build_negative_recommendations(frame, groups, on_copy, on_copy_all, on_close):
