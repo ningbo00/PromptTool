@@ -15,6 +15,12 @@ from shared.ui_kit import (
     ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT,
 )
 from shared.constants import ZH_PARAM_NAMES, kw_to_zh
+from core.services.camera_prompt_service import (
+    CameraPromptSpec,
+    append_negative_as_positive,
+    build_camera_prompt,
+    build_negative_zh as build_negative_zh_text,
+)
 from features.camera_builder.presets import (
     PARAMS_REAL, PARAMS_ANIME, FILTER_KEYWORDS,
     SHOT_SCALE, CAMERA_ELEVATION, SUBJECT_ANGLE,
@@ -210,14 +216,14 @@ class CameraBuilder(tk.Toplevel):
         self.tab_detail  = tk.Frame(self.nb, bg=BG_BASE)
         self.tab_extractor = tk.Frame(self.nb, bg=BG_BASE)
 
-        self.nb.add(self.tab_preset,  text="🎬 预设")
-        self.nb.add(self.tab_params,  text="⚙ 基础参数")
-        self.nb.add(self.tab_camera,  text="🎥 镜头位置")
-        self.nb.add(self.tab_filter,  text="🎨 滤镜积木")
-        self.nb.add(self.tab_subject, text="✍ 主体场景")
-        self.nb.add(self.tab_style,   text="🎭 风格情绪")
-        self.nb.add(self.tab_detail,  text="🔬 细节技术")
-        self.nb.add(self.tab_extractor, text="🧪 风格提炼器")
+        self.nb.add(self.tab_subject, text="1 场景")
+        self.nb.add(self.tab_preset,  text="2 风格·预设")
+        self.nb.add(self.tab_style,   text="2 风格·情绪")
+        self.nb.add(self.tab_filter,  text="2 风格·滤镜")
+        self.nb.add(self.tab_extractor, text="2 风格·提炼")
+        self.nb.add(self.tab_params,  text="3 镜头·参数")
+        self.nb.add(self.tab_camera,  text="3 镜头·位置")
+        self.nb.add(self.tab_detail,  text="4 输出")
 
         self._build_tab_preset()
         self._build_tab_params()
@@ -1566,21 +1572,19 @@ class CameraBuilder(tk.Toplevel):
 
     # ── 生成逻辑 ─────────────────────────────────────────────────
     def _build_prompt(self):
-        parts = []
-
-        # 主体描述（放最前）
+        subject = ""
         if self.subject_text:
             subj = self.subject_text.get("1.0", tk.END).strip()
             if subj and subj != self._SUBJECT_HINT:
-                parts.append(subj)
+                subject = subj
 
-        # 场景环境
+        environment = ""
         if self.environ_text:
             env = self.environ_text.get("1.0", tk.END).strip()
             if env and env != self._ENVIRON_HINT:
-                parts.append(env)
+                environment = env
 
-        # 基础参数（镜头/光圈/ISO 等）
+        parameters = []
         params = PARAMS_ANIME if self.is_anime.get() else PARAMS_REAL
         for name, (_, kw_fn) in params.items():
             if not self.param_checks.get(name, tk.BooleanVar(value=False)).get():
@@ -1592,61 +1596,66 @@ class CameraBuilder(tk.Toplevel):
                 selected_val = self.param_vars.get(name, tk.StringVar()).get()
                 kw = kw_fn(selected_val)
             if kw:
-                parts.append(kw)
+                parameters.append(kw)
 
+        camera_terms = []
         if self.shot_enabled.get():
-            parts.append(SHOT_SCALE[self.shot_var.get()][0])
+            camera_terms.append(SHOT_SCALE[self.shot_var.get()][0])
         if self.elevation_enabled.get():
-            parts.append(CAMERA_ELEVATION[self.elevation_var.get()][0])
+            camera_terms.append(CAMERA_ELEVATION[self.elevation_var.get()][0])
         if self.subject_angle_enabled.get():
-            parts.append(SUBJECT_ANGLE[self.subject_angle_var.get()][0])
+            camera_terms.append(SUBJECT_ANGLE[self.subject_angle_var.get()][0])
         if self.light_dir_enabled.get():
             kw = self._light_keyword()
             if kw:
-                parts.append(kw)
+                camera_terms.append(kw)
         if self.rim_light_var.get():
-            parts.append("rim light")
+            camera_terms.append("rim light")
 
+        filters = []
         for english_keyword, bv in self.filter_toggles.items():
             if bv.get():
-                parts.append(english_keyword)
+                filters.append(english_keyword)
 
-        # 风格情绪
+        style_terms = []
         for kw, bv in self.style_toggles.items():
             if bv.get():
-                parts.append(kw)
+                style_terms.append(kw)
         for kw, bv in self.aesthetic_toggles.items():
             if bv.get():
-                parts.append(kw)
+                style_terms.append(kw)
         for kw, bv in self.mood_toggles.items():
             if bv.get():
-                parts.append(kw)
+                style_terms.append(kw)
         motion = self.motion_var.get().strip()
         if motion and motion != "（不指定）":
-            parts.append(motion)
+            style_terms.append(motion)
 
-        # 细节技术
+        detail_terms = []
         for kw, bv in self.quality_toggles.items():
             if bv.get():
-                parts.append(kw)
+                detail_terms.append(kw)
         for kw, bv in self.texture_toggles.items():
             if bv.get():
-                parts.append(kw)
+                detail_terms.append(kw)
         for kw, bv in self.color_toggles.items():
             if bv.get():
-                parts.append(kw)
+                detail_terms.append(kw)
         render = self.render_var.get().strip()
-        if render and render != "（不指定）":
-            parts.append(render)
         ratio = self.ratio_var.get().strip()
-        if ratio and ratio != "（不指定）":
-            parts.append(f"aspect ratio {ratio}")
-
         extra = self.extra_var.get().strip()
-        if extra:
-            parts.append(extra)
-
-        return ", ".join(parts)
+        return build_camera_prompt(CameraPromptSpec(
+            subject=subject,
+            environment=environment,
+            parameters=parameters,
+            camera_terms=camera_terms,
+            filters=filters,
+            style_terms=style_terms,
+            detail_terms=detail_terms,
+            render=render,
+            ratio=ratio,
+            extra=extra,
+        ))
 
     def _build_prompt_zh(self):
         lines = []
@@ -1790,30 +1799,7 @@ class CameraBuilder(tk.Toplevel):
         return "\n".join(parts)
 
     def _build_negative_zh(self, neg_text: str) -> str:
-        from features.camera_builder.presets import NEGATIVE_ZH_MAP
-        lines = []
-        for term in neg_text.split(","):
-            term = term.strip()
-            if not term:
-                continue
-            # 处理括号权重格式 (word:1.4)
-            if term.startswith("(") and ":" in term:
-                inner = term.lstrip("(").split(":")[0].strip()
-                weight_str = term.split(":")[-1].rstrip(")")
-                try:
-                    weight = float(weight_str)
-                    zh = NEGATIVE_ZH_MAP.get(inner.lower(), kw_to_zh(inner))
-                    if weight >= 1.3:
-                        lines.append(f"⚡强力压制：{zh}")
-                    else:
-                        lines.append(f"压制：{zh}")
-                except ValueError:
-                    zh = NEGATIVE_ZH_MAP.get(inner.lower(), kw_to_zh(inner))
-                    lines.append(zh)
-            else:
-                zh = NEGATIVE_ZH_MAP.get(term.lower(), kw_to_zh(term) if kw_to_zh(term) != term else term)
-                lines.append(zh)
-        return "\n".join(lines)
+        return build_negative_zh_text(neg_text, NEGATIVE_ZH_MAP, kw_to_zh)
 
     def _generate(self):
         base_prompt = self._build_prompt()
@@ -1821,19 +1807,7 @@ class CameraBuilder(tk.Toplevel):
         if self.neg_to_positive_enabled.get() and self.neg_text is not None:
             neg = self.neg_text.get("1.0", tk.END).strip()
             if neg:
-                exclusion_parts = []
-                for term in neg.split(","):
-                    term = term.strip()
-                    if not term:
-                        continue
-                    if term.startswith("(") and ":1." in term:
-                        exclusion_parts.append(term.replace(":1.", ":0."))
-                    elif term.lower().startswith("no ") or term.lower().startswith("avoid"):
-                        exclusion_parts.append(term)
-                    else:
-                        exclusion_parts.append(f"no {term}")
-                if exclusion_parts:
-                    base_prompt = (base_prompt + ", " + ", ".join(exclusion_parts)) if base_prompt else ", ".join(exclusion_parts)
+                base_prompt = append_negative_as_positive(base_prompt, neg)
 
         if self.preview_text is None:
             return
