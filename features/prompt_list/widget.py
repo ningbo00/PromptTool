@@ -37,11 +37,13 @@ class PromptTool(tk.Tk):
         self.selected_index  = None
         self.checked_indices = self.prompt_service.checked_indices
         self.check_vars      = {}
+        self.action_buttons  = {}
         self.compact_mode    = False
         self.topmost_mode    = False
         self.layout_spec     = MainLayoutSpec.default()
 
         self._build_ui()
+        self._sync_prompts()
         self._refresh_buttons()
 
     # ─────────────────────────────────────────────────────────────
@@ -142,22 +144,27 @@ class PromptTool(tk.Tk):
         Tooltip(b_new, "+ 新建\n创建一个新的空白 Prompt 条目，自动进入编辑模式。")
         b_edit = self._btn(r1, "✎ 编辑",  self._edit_prompt,   ACCENT_BLUE  )
         b_edit.pack(side=tk.LEFT, padx=(0, 4))
+        self.action_buttons["edit"] = b_edit
         Tooltip(b_edit, "✎ 编辑\n选中一条 Prompt 后点击，进入编辑模式，可修改标题和内容。编辑完成后点[保存]。")
         b_del = self._btn(r1, "✕ 删除",  self._delete_prompt, ACCENT_RED   )
         b_del.pack(side=tk.LEFT)
+        self.action_buttons["delete"] = b_del
         Tooltip(b_del, "✕ 删除\n删除当前选中的 Prompt（不可撤销，会弹出确认对话框）。")
 
         r2 = _group("排序")
         b_up = self._btn(r2, "↑ 上移", lambda: self._move(-1), ACCENT_ORANGE)
         b_up.pack(side=tk.LEFT, padx=(0, 4))
+        self.action_buttons["move_up"] = b_up
         Tooltip(b_up, "↑ 上移\n将当前选中的 Prompt 在列表中向上移动一位，调整排列顺序。")
         b_dn = self._btn(r2, "↓ 下移", lambda: self._move(1),  ACCENT_ORANGE)
         b_dn.pack(side=tk.LEFT)
+        self.action_buttons["move_down"] = b_dn
         Tooltip(b_dn, "↓ 下移\n将当前选中的 Prompt 在列表中向下移动一位，调整排列顺序。")
 
         r3 = _group("批量")
         b_copy_checked = self._btn(r3, "☑ 拼接复制", self._copy_checked_prompts,  ACCENT_CYAN  )
         b_copy_checked.pack(side=tk.TOP, anchor="w", fill=tk.X, pady=(0, 4))
+        self.action_buttons["copy_checked"] = b_copy_checked
         Tooltip(b_copy_checked, "☑ 拼接复制\n将所有勾选的 Prompt 内容拼接（用空行分隔），一次性复制到剪贴板，适合组合使用多个 Prompt。")
         batch_row = tk.Frame(r3, bg=BG_SURFACE)
         batch_row.pack(fill=tk.X)
@@ -197,9 +204,11 @@ class PromptTool(tk.Tk):
         right_bottom.pack(fill=tk.X, pady=(8, 0))
         b_save = self._btn(right_bottom, "💾 保存",          self._save_edit,     ACCENT_GREEN )
         b_save.pack(side=tk.LEFT, padx=(0, 4))
+        self.action_buttons["save"] = b_save
         Tooltip(b_save, "💾 保存\n将编辑区的标题和内容保存到本地文件中（JSON 格式，重启后仍保留）。")
         b_copy = self._btn(right_bottom, "📋 复制到剪切板",  self._copy_current,  ACCENT_CYAN  )
         b_copy.pack(side=tk.LEFT, padx=(0, 4))
+        self.action_buttons["copy_current"] = b_copy
         Tooltip(b_copy, "📋 复制到剪切板\n将右侧编辑区中的 Prompt 内容复制到剪贴板，可直接粘贴到 AI 生图工具中使用。")
 
         self.status_label = tk.Label(right_bottom, text="", bg="#181825",
@@ -224,7 +233,7 @@ class PromptTool(tk.Tk):
         tk.Label(self.tools_pane, text="主要工作流", bg=BG_BASE, fg=FG_MUTED,
                  font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
 
-        def _tool_card(title, desc, action_text, command, color):
+        def _tool_card(title, desc, action_text, command, color, key=None):
             card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
             card.pack(fill=tk.X, pady=(0, 8))
             tk.Label(card, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
@@ -234,6 +243,8 @@ class PromptTool(tk.Tk):
                      wraplength=210).pack(anchor="w", fill=tk.X, pady=(4, 8))
             btn = self._btn(card, action_text, command, color)
             btn.pack(anchor="e")
+            if key:
+                self.action_buttons[key] = btn
             return card
 
         _tool_card(
@@ -242,6 +253,7 @@ class PromptTool(tk.Tk):
             "优化当前",
             self._ai_optimize,
             ACCENT_PURPLE,
+            key="ai_optimize",
         )
         _tool_card(
             "✨ 提示词生成器",
@@ -285,6 +297,8 @@ class PromptTool(tk.Tk):
         self.prompts = self.prompt_service.prompts
         self.checked_indices = self.prompt_service.checked_indices
         self._refresh_library_status()
+        self._refresh_empty_state()
+        self._refresh_action_states()
 
     def _refresh_library_status(self):
         if not hasattr(self, "library_status_label"):
@@ -295,6 +309,40 @@ class PromptTool(tk.Tk):
             text=f"{status['total']} 条 / 勾选 {status['checked']} / {selected}"
         )
 
+    def _refresh_action_states(self):
+        if not self.action_buttons:
+            return
+        state = self.prompt_service.action_state(self.selected_index)
+        mapping = {
+            "edit": state["can_edit"],
+            "delete": state["can_delete"],
+            "move_up": state["can_move_up"],
+            "move_down": state["can_move_down"],
+            "copy_checked": state["can_copy_checked"],
+            "save": state["can_edit"],
+            "copy_current": state["can_edit"],
+            "ai_optimize": state["can_ai_optimize"],
+        }
+        for key, enabled in mapping.items():
+            if key in self.action_buttons:
+                self.action_buttons[key].config(
+                    state=tk.NORMAL if enabled else tk.DISABLED
+                )
+
+    def _refresh_empty_state(self):
+        if not hasattr(self, "text_area") or self.selected_index is not None:
+            return
+        message = (
+            "还没有 Prompt。\n\n点击左侧「+ 新建」创建第一条 Prompt，"
+            "或打开右侧「提示词生成器」。"
+            if not self.prompts else
+            "请从左侧 Prompt 库选择一条内容，或点击「+ 新建」。"
+        )
+        self.text_area.config(state=tk.NORMAL, bg=BG_SURFACE, fg=FG_DIM)
+        self.text_area.delete("1.0", tk.END)
+        self.text_area.insert("1.0", message)
+        self.text_area.config(state=tk.DISABLED)
+
     def _set_edit_mode(self, editable: bool):
         state = tk.NORMAL if editable else tk.DISABLED
         self.text_area.config(state=state,
@@ -304,6 +352,7 @@ class PromptTool(tk.Tk):
         self.edit_mode_label.config(
             text="编辑中..." if editable else self._preview_title()
         )
+        self._refresh_action_states()
 
     def _preview_title(self):
         return "预览当前 Prompt" if self.selected_index is not None else "未选择 Prompt"
@@ -390,6 +439,7 @@ class PromptTool(tk.Tk):
     # ─────────────────────────────────────────────────────────────
     def _select(self, index):
         self.selected_index = index
+        self._sync_prompts()
         p = self.prompts[index]
         self._set_edit_mode(False)
         self.title_var.set(p.title)
@@ -468,6 +518,9 @@ class PromptTool(tk.Tk):
         self._refresh_buttons()
 
     def _copy_current(self):
+        if self.selected_index is None:
+            messagebox.showinfo("提示", "请先选择一个 Prompt")
+            return
         self.text_area.config(state=tk.NORMAL)
         content = self.text_area.get("1.0", tk.END).strip()
         editing = self.edit_mode_label.cget("text") == "编辑中..."

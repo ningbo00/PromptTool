@@ -61,5 +61,17 @@ class PromptService:
             "selected_index": selected_index,
         }
 
+    def action_state(self, selected_index: int | None) -> dict:
+        total = len(self.library.prompts)
+        has_selection = selected_index is not None and 0 <= selected_index < total
+        return {
+            "can_edit": has_selection,
+            "can_delete": has_selection,
+            "can_move_up": has_selection and selected_index > 0,
+            "can_move_down": has_selection and selected_index < total - 1,
+            "can_copy_checked": bool(self.selection.checked_indices),
+            "can_ai_optimize": has_selection,
+        }
+
     def _persist(self) -> None:
         self.store.save(self.library.prompts)

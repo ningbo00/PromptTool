@@ -127,3 +127,47 @@ def test_service_status_summary_marks_missing_selection():
         "selected": False,
         "selected_index": None,
     }
+
+
+def test_service_action_state_without_selection():
+    service = PromptService(InMemoryPromptStore([Prompt("A", "first")]))
+
+    assert service.action_state(selected_index=None) == {
+        "can_edit": False,
+        "can_delete": False,
+        "can_move_up": False,
+        "can_move_down": False,
+        "can_copy_checked": False,
+        "can_ai_optimize": False,
+    }
+
+
+def test_service_action_state_for_first_selected_prompt():
+    service = PromptService(
+        InMemoryPromptStore([Prompt("A", "first"), Prompt("B", "second")])
+    )
+    service.toggle_checked(1)
+
+    assert service.action_state(selected_index=0) == {
+        "can_edit": True,
+        "can_delete": True,
+        "can_move_up": False,
+        "can_move_down": True,
+        "can_copy_checked": True,
+        "can_ai_optimize": True,
+    }
+
+
+def test_service_action_state_for_last_selected_prompt():
+    service = PromptService(
+        InMemoryPromptStore([Prompt("A", "first"), Prompt("B", "second")])
+    )
+
+    assert service.action_state(selected_index=1) == {
+        "can_edit": True,
+        "can_delete": True,
+        "can_move_up": True,
+        "can_move_down": False,
+        "can_copy_checked": False,
+        "can_ai_optimize": True,
+    }
