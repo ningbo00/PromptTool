@@ -13,6 +13,7 @@ from shared.ui_kit import (
     ACCENT_PURPLE, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT, Tooltip,
 )
 from shared.config import get_ai_config
+from core.services.ai_optimize_actions import build_ai_optimize_messages
 from features.ai_optimize.client import call_ai
 
 
@@ -134,14 +135,23 @@ class AIOptimizeDialog(tk.Toplevel):
                  insertbackground=FG_PRIMARY, relief=tk.FLAT, font=("微软雅黑", 9)
                  ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=(8, 0))
 
-        # ── 行 3：功能按钮 ──────────────────────────────────────────
-        row3 = tk.Frame(self, bg=BG_BASE)
-        row3.pack(fill=tk.X, padx=12, pady=(0, 4))
+        actions = tk.Frame(self, bg=BG_BASE)
+        actions.pack(fill=tk.X, padx=12, pady=(0, 6))
 
-        row3b = tk.Frame(self, bg=BG_BASE)
-        row3b.pack(fill=tk.X, padx=12, pady=(0, 6))
+        def _action_group(parent, title):
+            group = tk.Frame(parent, bg=BG_SURFACE, padx=8, pady=8)
+            group.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+            tk.Label(group, text=title, bg=BG_SURFACE, fg=FG_MUTED,
+                     font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
+            row = tk.Frame(group, bg=BG_SURFACE)
+            row.pack(fill=tk.X)
+            return row
 
-        def _abtn(text, cmd, color, state=tk.NORMAL, tip="", parent=row3):
+        primary_row = _action_group(actions, "主要流程")
+        advanced_row = _action_group(actions, "高级工具")
+        result_row = _action_group(actions, "结果操作")
+
+        def _abtn(text, cmd, color, state=tk.NORMAL, tip="", parent=primary_row):
             """action button — 统一加入 _action_btns 受 busy 控制"""
             b = tk.Button(parent, text=text, command=cmd,
                           bg=color, fg=DARK_TEXT, relief=tk.FLAT,
@@ -153,7 +163,7 @@ class AIOptimizeDialog(tk.Toplevel):
                 Tooltip(b, tip)
             return b
 
-        def _sbtn(text, cmd, color, state=tk.NORMAL, tip="", parent=row3b):
+        def _sbtn(text, cmd, color, state=tk.NORMAL, tip="", parent=result_row):
             """secondary button — 不加入 action_btns"""
             b = tk.Button(parent, text=text, command=cmd,
                           bg=color, fg=DARK_TEXT, relief=tk.FLAT,
@@ -172,23 +182,24 @@ class AIOptimizeDialog(tk.Toplevel):
               tip="🌐 中文→英\n在左侧框输入中文场景描述（如[夕阳下的少女]），AI 会将其转化为适合图像生成的英文 Prompt（逗号分隔关键词格式）。")
         _abtn("🔀 生成3变体",  self._gen_variants,     ACCENT_ORANGE,
               tip="🔀 生成3变体\n让 AI 一次生成同一方向的 3 个不同风格版本，下方会出现单选按钮供选择，选中后才能应用。")
-        _abtn("🎯 AI评分",     self._score,            ACCENT_YELLOW,
+        _abtn("🎯 AI评分",     self._score,            ACCENT_YELLOW, parent=advanced_row,
               tip="🎯 AI评分\n让 AI 对当前原始 Prompt 进行质量评分（1-10分），给出 3 条具体改进建议，并自动检测词汇矛盾。评分结果显示在底部评分区。")
-        _abtn("🏷 提取关键词", self._extract_keywords, "#74c7ec",
+        _abtn("🏷 提取关键词", self._extract_keywords, "#74c7ec", parent=advanced_row,
               tip="🏷 提取关键词\n从原始 Prompt 中提取 10-15 个最核心的语义关键词，以蓝色标签显示在底部。点击任意标签可将该词复制到剪贴板。")
-        _abtn("💡 仅扩写",     self._expand_only,      "#a6e3a1",
+        _abtn("💡 仅扩写",     self._expand_only,      "#a6e3a1", parent=advanced_row,
               tip="💡 仅扩写\nAI 不修改原有内容，只在末尾追加新的细节词（场景细节、光线质感、情绪氛围等）。\n输出格式：原文, [新增：追加词]")
 
-        _abtn("🧙 引导创作",   self._guided_create,    ACCENT_PURPLE, parent=row3b,
+        advanced_row2 = tk.Frame(advanced_row, bg=BG_SURFACE)
+        advanced_row2.pack(fill=tk.X, pady=(4, 0))
+        _abtn("🧙 引导创作",   self._guided_create,    ACCENT_PURPLE, parent=advanced_row2,
               tip="🧙 引导创作\n如果你不知道怎么写 Prompt，AI 会一步步提问你主体、场景、氛围、风格和特殊要求，最后自动生成完整 Prompt。")
-        _abtn("🚫 推荐负面词", self._recommend_negative, ACCENT_RED, parent=row3b,
+        _abtn("🚫 推荐负面词", self._recommend_negative, ACCENT_RED, parent=advanced_row2,
               tip="🚫 推荐负面词\n根据当前 Prompt，AI 自动推荐适合排除的负面词，按分组显示在底部，点击即可复制。")
-        _abtn("📖 描述转Prompt", self._desc_to_prompt, ACCENT_ORANGE, parent=row3b,
+        _abtn("📖 描述转Prompt", self._desc_to_prompt, ACCENT_ORANGE, parent=advanced_row2,
               tip="📖 描述转Prompt\n把一段自然语言描述、小说片段或中文场景说明，提炼成适合生图/生视频的英文 Prompt。")
-        _abtn("🛡 合规检验",   self._compliance_check, "#94e2d5", parent=row3b,
+        _abtn("🛡 合规检验",   self._compliance_check, "#94e2d5", parent=advanced_row2,
               tip="🛡 合规检验\n检测 Prompt 中可能导致 AI 视频/图像平台拒绝生成的违规词或敏感内容，结果显示在底部，标出违规词并给出修改建议。")
 
-        tk.Frame(row3b, bg=BG_HOVER, width=1).pack(side=tk.LEFT, fill=tk.Y, padx=6)
         self._apply_btn  = _sbtn("✅ 应用到编辑器", self._apply,   ACCENT_GREEN, tk.DISABLED,
               tip="✅ 应用到编辑器\n将右侧 AI 优化结果替换到主窗口的编辑区（需要再点[保存]才能持久化）。")
         self._saveas_btn = _sbtn("💾 另存为",       self._saveas,  "#f9e2af",    tk.DISABLED,
@@ -428,16 +439,13 @@ class AIOptimizeDialog(tk.Toplevel):
         self._result_zh_text.config(state=tk.DISABLED)
         self._clear_variant_ui()
 
-        length_hint = self._LENGTH_HINTS.get(self._length_var.get(), "")
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是一个专业的 AI 绘画 Prompt 优化专家。"
-                "用户会给你一段英文 Prompt，你需要按照用户的要求对其进行优化。"
-                f"{length_hint}"
-                "只输出优化后的 Prompt 文本，不要有任何解释、标题或额外说明。"},
-            {"role": "user", "content": f"优化要求：{direction}\n\n原始 Prompt：\n{original}"},
-        ]
+        messages = build_ai_optimize_messages(
+            action="optimize_current",
+            original=original,
+            direction=direction,
+            length=self._length_var.get(),
+        )
 
         def _on_ok(text):
             def _show():
@@ -496,17 +504,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._score_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是 AI 绘画 Prompt 专家评审。用户会给你一段英文 Prompt，"
-                "请评估其质量，同时检测词汇矛盾。"
-                "输出格式严格为（用中文）：\n"
-                "评分: X/10\n"
-                "改进建议:\n1. ...\n2. ...\n3. ...\n"
-                "矛盾检测:\n"
-                "（若无明显矛盾写：✅ 无明显矛盾；若有矛盾则列出：❌ [矛盾词A] 与 [矛盾词B] 存在冲突 → 建议：...）"},
-            {"role": "user", "content": f"请评分并给出改进建议：\n{original}"},
-        ]
+        messages = build_ai_optimize_messages(action="score", original=original)
 
         def _on_ok(text):
             def _show():
@@ -603,17 +601,11 @@ class AIOptimizeDialog(tk.Toplevel):
         self._result_zh_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        length_hint = self._LENGTH_HINTS.get(self._length_var.get(), "")
-        messages = [
-            {"role": "system", "content":
-                "你是一个专业的 AI 绘画/摄影 Prompt 生成专家。"
-                "用户会给你一段中文场景/角色/风格描述，"
-                "你需要将其转化为适合 AI 图像生成的英文 Prompt（逗号分隔关键词格式），"
-                "包含主体描述、场景环境、光线风格、画面质量词。"
-                f"{length_hint}"
-                "只输出英文 Prompt，不要有任何解释或中文。"},
-            {"role": "user", "content": original},
-        ]
+        messages = build_ai_optimize_messages(
+            action="zh_to_en",
+            original=original,
+            length=self._length_var.get(),
+        )
 
         def _on_ok(text):
             def _show():
@@ -655,18 +647,12 @@ class AIOptimizeDialog(tk.Toplevel):
         self._clear_variant_ui()
 
         ai_url, ai_key, ai_model = get_ai_config()
-        length_hint = self._LENGTH_HINTS.get(self._length_var.get(), "")
-        messages = [
-            {"role": "system", "content":
-                "你是专业 AI 绘画 Prompt 优化专家。"
-                "用户会给你一段英文 Prompt 和优化要求，生成 3 个不同风格的变体版本。"
-                f"{length_hint}"
-                "必须严格按如下格式输出，不要有任何额外说明或解释：\n"
-                "[变体1]\n（第一个变体的完整 Prompt 内容）\n"
-                "[变体2]\n（第二个变体的完整 Prompt 内容）\n"
-                "[变体3]\n（第三个变体的完整 Prompt 内容）"},
-            {"role": "user", "content": f"优化要求：{direction}\n\n原始 Prompt：\n{original}"},
-        ]
+        messages = build_ai_optimize_messages(
+            action="generate_variants",
+            original=original,
+            direction=direction,
+            length=self._length_var.get(),
+        )
 
         def _on_ok(text):
             def _show():
@@ -899,13 +885,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._set_status("⏳ 提取关键词中…")
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是 Prompt 关键词分析专家。"
-                "从用户的英文 Prompt 中提取 10-15 个最关键的语义标签词/短语，"
-                "以英文逗号分隔输出，不要有任何额外说明或编号。"},
-            {"role": "user", "content": original},
-        ]
+        messages = build_ai_optimize_messages(action="extract_keywords", original=original)
 
         def _on_ok(text):
             def _show():
@@ -1095,15 +1075,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._set_status("⏳ AI 推荐负面词中…")
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是 AI 绘画负面提示词专家。根据用户的英文 Prompt，"
-                "推荐应该排除的负面词，分 3 组输出，格式严格如下（不要额外说明）：\n"
-                "通用质量问题|blurry, low quality, watermark, text, bad anatomy\n"
-                "与主题冲突|（与用户主体/风格冲突的词，英文逗号分隔）\n"
-                "风格一致性|（可能破坏当前风格的词，英文逗号分隔）"},
-            {"role": "user", "content": f"请为以下 Prompt 推荐负面词：\n{original}"},
-        ]
+        messages = build_ai_optimize_messages(action="recommend_negative", original=original)
 
         def _on_ok(text):
             def _show():
@@ -1258,16 +1230,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._compliance_raw = ""
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是 AI 内容合规审核专家，熟悉国内外主流 AI 视频/图像平台（可灵、即梦、Runway、Sora、Midjourney 等）的内容审核规则。\n"
-                "用户会提交一段英文 Prompt，请检测其中是否存在可能导致平台拒绝生成的内容。\n"
-                "输出格式（中文）：\n"
-                "【总体结论】通过 / 存在风险\n"
-                "【违规/风险词】（若有，每行一个：词语 → 风险原因 → 建议替换为）\n"
-                "【修复建议】（1-3 句综合建议，若无问题写：无需修改）"},
-            {"role": "user", "content": f"请检验以下 Prompt 的合规性：\n{original}"},
-        ]
+        messages = build_ai_optimize_messages(action="compliance_check", original=original)
 
         def _on_ok(text):
             def _show():
