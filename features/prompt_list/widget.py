@@ -122,12 +122,16 @@ class PromptTool(tk.Tk):
         action_frame = tk.Frame(self.left_pane, bg=BG_BASE)
         action_frame.pack(fill=tk.X, pady=(8, 0))
 
-        def _row():
-            r = tk.Frame(action_frame, bg=BG_BASE)
-            r.pack(fill=tk.X, pady=(0, 4))
-            return r
+        def _group(title):
+            box = tk.Frame(action_frame, bg=BG_SURFACE, padx=8, pady=8)
+            box.pack(fill=tk.X, pady=(0, 6))
+            tk.Label(box, text=title, bg=BG_SURFACE, fg=FG_MUTED,
+                     font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
+            row = tk.Frame(box, bg=BG_SURFACE)
+            row.pack(fill=tk.X)
+            return row
 
-        r1 = _row()
+        r1 = _group("主要操作")
         b_new = self._btn(r1, "+ 新建",  self._new_prompt,    ACCENT_GREEN )
         b_new.pack(side=tk.LEFT, padx=(0, 4))
         Tooltip(b_new, "+ 新建\n创建一个新的空白 Prompt 条目，自动进入编辑模式。")
@@ -138,7 +142,7 @@ class PromptTool(tk.Tk):
         b_del.pack(side=tk.LEFT)
         Tooltip(b_del, "✕ 删除\n删除当前选中的 Prompt（不可撤销，会弹出确认对话框）。")
 
-        r2 = _row()
+        r2 = _group("排序")
         b_up = self._btn(r2, "↑ 上移", lambda: self._move(-1), ACCENT_ORANGE)
         b_up.pack(side=tk.LEFT, padx=(0, 4))
         Tooltip(b_up, "↑ 上移\n将当前选中的 Prompt 在列表中向上移动一位，调整排列顺序。")
@@ -146,7 +150,7 @@ class PromptTool(tk.Tk):
         b_dn.pack(side=tk.LEFT)
         Tooltip(b_dn, "↓ 下移\n将当前选中的 Prompt 在列表中向下移动一位，调整排列顺序。")
 
-        r3 = _row()
+        r3 = _group("批量")
         b_copy_checked = self._btn(r3, "☑ 拼接复制", self._copy_checked_prompts,  ACCENT_CYAN  )
         b_copy_checked.pack(side=tk.LEFT, padx=(0, 4))
         Tooltip(b_copy_checked, "☑ 拼接复制\n将所有勾选的 Prompt 内容拼接（用空行分隔），一次性复制到剪贴板，适合组合使用多个 Prompt。")
@@ -156,12 +160,6 @@ class PromptTool(tk.Tk):
         b_clrsel = self._btn(r3, "清空选择",    self._clear_checked_prompts, "#9399b2"    )
         b_clrsel.pack(side=tk.LEFT)
         Tooltip(b_clrsel, "清空选择\n取消所有 Prompt 的勾选状态。")
-
-        r4 = _row()
-        b_cam = self._btn(r4, "✨ 提示词生成器", self._open_camera_builder,
-                  ACCENT_PURPLE)
-        b_cam.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        Tooltip(b_cam, "✨ 提示词生成器\n打开专业摄影参数构建器，通过可视化选项（景别、光线、风格等）自动生成高质量英文 Prompt，并一键插入列表。")
 
     def _build_right_pane(self):
         header = tk.Frame(self.right_pane, bg="#181825")
@@ -216,6 +214,9 @@ class PromptTool(tk.Tk):
         )
         intro.pack(anchor="w", fill=tk.X, pady=(0, 10))
 
+        tk.Label(self.tools_pane, text="主要工作流", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
+
         def _tool_card(title, desc, command, color):
             card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
             card.pack(fill=tk.X, pady=(0, 8))
@@ -240,10 +241,19 @@ class PromptTool(tk.Tk):
             self._open_camera_builder,
             ACCENT_GREEN,
         )
+
+        tk.Label(self.tools_pane, text="辅助", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(4, 6))
         _tool_card(
             "⚙ AI 设置",
             "配置 API Key、模型和兼容接口地址。",
             self._ai_settings,
+            BG_HOVER,
+        )
+        _tool_card(
+            "❓ 帮助",
+            "查看功能说明和常见操作提示。",
+            self._open_help,
             BG_HOVER,
         )
 
