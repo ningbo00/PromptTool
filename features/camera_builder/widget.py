@@ -8,7 +8,7 @@ import tkinter.simpledialog
 from tkinter.colorchooser import askcolor
 
 from shared.ui_kit import (
-    bind_mousewheel, make_scroll_canvas, apply_dark_notebook_style, Tooltip,
+    apply_dark_notebook_style, Tooltip,
     BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, ACCENT_YELLOW,
@@ -26,29 +26,32 @@ from core.services.camera_prompt_service import (
     build_subject_scene_zh,
     resolve_preset_values,
 )
-from features.camera_builder.scene_step import create_scene_step
-from features.camera_builder.style_step import create_style_step
-from features.camera_builder.camera_step import create_camera_step
-from features.camera_builder.output_step import create_output_step
+from features.camera_builder.scene_step import create_scene_step, build_subject_tab, fill_chips
+from features.camera_builder.style_step import (
+    create_style_step, build_preset_tab, build_style_tab, build_filter_tab,
+    build_extractor_tab, fill_toggle_grid,
+)
+from features.camera_builder.camera_step import (
+    create_camera_step, build_params_tab, build_camera_tab, render_params,
+)
+from features.camera_builder.output_step import create_output_step, build_detail_tab
 from features.camera_builder.preview_panel import PreviewPanel
 from features.camera_builder.presets import (
-    PARAMS_REAL, PARAMS_ANIME, FILTER_KEYWORDS,
+    PARAMS_REAL, PARAMS_ANIME,
     SHOT_SCALE, CAMERA_ELEVATION, SUBJECT_ANGLE,
     PRESETS_REAL, PRESETS_ANIME,
     SUBJECT_CHIPS_REAL, SUBJECT_CHIPS_ANIME,
     ENVIRONMENT_CHIPS_REAL, ENVIRONMENT_CHIPS_ANIME,
     STYLE_REAL, STYLE_ANIME,
     MOOD_REAL, MOOD_ANIME,
-    MOTION_OPTIONS,
     TEXTURE_REAL, TEXTURE_ANIME,
     COLOR_SUPPLEMENT_REAL, COLOR_SUPPLEMENT_ANIME,
-    RENDER_ENGINES, OUTPUT_RATIOS,
     WEATHER_CHIPS_REAL, WEATHER_CHIPS_ANIME,
     SUBJECT_COUNT_REAL, SUBJECT_COUNT_ANIME,
     AESTHETIC_REAL, AESTHETIC_ANIME,
     QUALITY_CHIPS_REAL, QUALITY_CHIPS_ANIME,
     NEG_PRESETS,
-    NEGATIVE_ZH_MAP, ANIME_STYLE_EXTRACTOR_PRESETS,
+    NEGATIVE_ZH_MAP,
 )
 
 
@@ -222,212 +225,14 @@ class CameraBuilder(tk.Toplevel):
         create_camera_step(self.nb, self)
         create_output_step(self.nb, self)
 
-        self._build_tab_preset()
-        self._build_tab_params()
-        self._build_tab_camera()
-        self._build_tab_filter()
-        self._build_tab_subject()
-        self._build_tab_style()
-        self._build_tab_detail()
-        self._build_tab_extractor()
-
-    # ── Tab1：基础参数 ──────────────────────────────────────────
-    def _build_tab_params(self):
-        self._params_scroll_host = self.tab_params
-        self._render_params()
-
-    def _render_params(self):
-        for w in self._params_scroll_host.winfo_children():
-            w.destroy()
-        self.param_vars.clear()
-        self.custom_vars.clear()
-        self.param_checks.clear()
-
-        params = PARAMS_ANIME if self.is_anime.get() else PARAMS_REAL
-        _, inner = make_scroll_canvas(self._params_scroll_host, bg=BG_BASE)
-
-        for name, (options, _) in params.items():
-            row = tk.Frame(inner, bg=BG_SURFACE, pady=5)
-            row.pack(fill=tk.X, pady=2, padx=4)
-
-            enabled = tk.BooleanVar(value=True)
-            self.param_checks[name] = enabled
-            tk.Checkbutton(row, variable=enabled, bg=BG_SURFACE, activebackground=BG_SURFACE,
-                           selectcolor=BG_HOVER, fg=FG_PRIMARY,
-                           command=self._generate).pack(side=tk.LEFT, padx=(6, 0))
-
-            tk.Label(row, text=name, bg=BG_SURFACE, fg=FG_PRIMARY,
-                     font=("微软雅黑", 9, "bold"), width=10, anchor="w").pack(side=tk.LEFT, padx=(4, 8))
-
-            selected_sv = tk.StringVar(value=options[0])
-            self.param_vars[name] = selected_sv
-            cb = ttk.Combobox(row, textvariable=selected_sv, values=options,
-                              state="readonly", width=28, font=("微软雅黑", 9))
-            cb.pack(side=tk.LEFT, padx=(0, 8))
-            cb.bind("<<ComboboxSelected>>", lambda _e: self._generate())
-
-            custom_sv = tk.StringVar()
-            self.custom_vars[name] = custom_sv
-            entry = tk.Entry(row, textvariable=custom_sv, bg=BG_CARD, fg=FG_PRIMARY,
-                             insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                             font=("微软雅黑", 9), width=20)
-            entry.pack(side=tk.LEFT, padx=(0, 8), ipady=3)
-            entry.insert(0, "自定义...")
-            entry.config(fg=FG_DIM)
-            entry.bind("<FocusIn>",  lambda _e, ent=entry: self._entry_focus_in(ent))
-            entry.bind("<FocusOut>", lambda _e, ent=entry: self._entry_focus_out(ent))
-            entry.bind("<KeyRelease>", lambda _e: self._generate())
-
-    # ── Tab2：镜头位置 ─────────────────────────────────────────
-    def _build_tab_camera(self):
-        _, inner = make_scroll_canvas(self.tab_camera, bg=BG_SURFACE)
-        self._build_sliders_section(inner)
-
-    def _build_sliders_section(self, parent):
-        outer = tk.Frame(parent, bg=BG_SURFACE)
-        outer.pack(fill=tk.BOTH, expand=True)
-
-        def _slider_section(title, var, enabled_var, labels, lo, hi, color,
-                            on_change_fn, result_label_attr):
-            sec = tk.Frame(outer, bg=BG_SURFACE)
-            sec.pack(fill=tk.X, padx=16, pady=(10, 6))
-
-            hdr = tk.Frame(sec, bg=BG_SURFACE)
-            hdr.pack(fill=tk.X)
-            tk.Label(hdr, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
-                     font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-            tk.Checkbutton(hdr, text="加入生成结果", variable=enabled_var,
-                           bg=BG_SURFACE, fg=FG_MUTED, activebackground=BG_SURFACE,
-                           selectcolor=BG_HOVER, font=("微软雅黑", 8),
-                           command=self._generate).pack(side=tk.RIGHT)
-
-            lbl_row = tk.Frame(sec, bg=BG_SURFACE)
-            lbl_row.pack(fill=tk.X, pady=(6, 0))
-            for t in labels:
-                tk.Label(lbl_row, text=t, bg=BG_SURFACE, fg=FG_MUTED,
-                         font=("微软雅黑", 8), width=5).pack(side=tk.LEFT, expand=True)
-
-            tk.Scale(sec, from_=lo, to=hi, orient=tk.HORIZONTAL, variable=var,
-                     showvalue=False, bg=BG_SURFACE, fg=color, troughcolor=BG_CARD,
-                     activebackground=color, highlightthickness=0, resolution=1,
-                     command=lambda _v: on_change_fn()).pack(fill=tk.X, pady=(0, 2))
-
-            lbl = tk.Label(sec, text="", bg=BG_SURFACE, fg=color,
-                           font=("微软雅黑", 9))
-            lbl.pack(anchor="w")
-            setattr(self, result_label_attr, lbl)
-            ttk.Separator(outer, orient="horizontal").pack(fill=tk.X, padx=16, pady=6)
-
-        _slider_section(
-            "🔭 景别 Shot Scale", self.shot_var, self.shot_enabled,
-            ["超远景", "远景", "中景", "近景", "特写", "微距", "超微距"], 0, 6,
-            ACCENT_PURPLE, self._on_shot_change, "shot_result_label",
-        )
-        _slider_section(
-            "📐 俯仰角 Camera Elevation", self.elevation_var, self.elevation_enabled,
-            ["极端仰", "仰拍", "轻仰", "平视", "轻俯", "俯拍", "顶视"], 0, 6,
-            ACCENT_YELLOW, self._on_elevation_change, "elevation_result_label",
-        )
-        _slider_section(
-            "🧭 主体方位角 Subject Angle", self.subject_angle_var, self.subject_angle_enabled,
-            ["正面", "左前", "左侧", "左后", "背面", "右后", "右侧", "右前"], 0, 7,
-            ACCENT_CYAN, self._on_angle_change, "angle_result_label",
-        )
-
-        self._on_shot_change()
-        self._on_elevation_change()
-        self._on_angle_change()
-
-        # ── 主光源 ──
-        sec3 = tk.Frame(outer, bg=BG_SURFACE)
-        sec3.pack(fill=tk.X, padx=16, pady=(0, 6))
-        hdr3 = tk.Frame(sec3, bg=BG_SURFACE)
-        hdr3.pack(fill=tk.X)
-        tk.Label(hdr3, text="💡 主光源 Key Light", bg=BG_SURFACE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        tk.Checkbutton(hdr3, text="加入生成结果", variable=self.light_dir_enabled,
-                       bg=BG_SURFACE, fg=FG_MUTED, activebackground=BG_SURFACE,
-                       selectcolor=BG_HOVER, font=("微软雅黑", 8),
-                       command=self._generate).pack(side=tk.RIGHT)
-
-        light_body = tk.Frame(sec3, bg=BG_SURFACE)
-        light_body.pack(fill=tk.X, pady=(8, 0))
-
-        SPHERE_SIZE = 160
-        self._light_sphere_canvas = tk.Canvas(
-            light_body, width=SPHERE_SIZE, height=SPHERE_SIZE,
-            bg="#1a1a2e", highlightthickness=1, highlightbackground=BG_HOVER,
-            cursor="crosshair",
-        )
-        self._light_sphere_canvas.pack(side=tk.LEFT, padx=(0, 12))
-        self._draw_light_sphere()
-        self._light_sphere_canvas.bind("<Button-1>",        self._sphere_click)
-        self._light_sphere_canvas.bind("<B1-Motion>",       self._sphere_drag)
-        self._light_sphere_canvas.bind("<ButtonRelease-1>", self._sphere_release)
-
-        right_col = tk.Frame(light_body, bg=BG_SURFACE)
-        right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        hemi_row = tk.Frame(right_col, bg=BG_SURFACE)
-        hemi_row.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(hemi_row, text="视角面:", bg=BG_SURFACE, fg=FG_MUTED,
-                 font=("微软雅黑", 8)).pack(side=tk.LEFT)
-        self._hemi_front_btn = tk.Button(
-            hemi_row, text="前", bg=ACCENT_BLUE, fg=DARK_TEXT,
-            relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
-            cursor="hand2", activebackground=ACCENT_BLUE,
-            command=lambda: self._set_hemi(False),
-        )
-        self._hemi_front_btn.pack(side=tk.LEFT, padx=(6, 2))
-        self._hemi_back_btn = tk.Button(
-            hemi_row, text="后", bg=BG_HOVER, fg=FG_PRIMARY,
-            relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
-            cursor="hand2", activebackground=BG_HOVER,
-            command=lambda: self._set_hemi(True),
-        )
-        self._hemi_back_btn.pack(side=tk.LEFT)
-
-        color_row = tk.Frame(right_col, bg=BG_SURFACE)
-        color_row.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(color_row, text="光源颜色", bg=BG_SURFACE, fg=FG_MUTED,
-                 font=("微软雅黑", 8)).pack(side=tk.LEFT)
-        self._light_color_btn = tk.Button(
-            color_row, text="", width=3, relief=tk.FLAT, cursor="hand2",
-            bg=self.light_color, activebackground=self.light_color,
-            command=self._pick_light_color,
-        )
-        self._light_color_btn.pack(side=tk.LEFT, padx=(8, 0), ipady=6)
-        self._light_color_label = tk.Label(
-            color_row, text=self.light_color, bg=BG_SURFACE, fg=FG_MUTED,
-            font=("微软雅黑", 8),
-        )
-        self._light_color_label.pack(side=tk.LEFT, padx=(6, 0))
-
-        self._azimuth_label = tk.Label(right_col, text="", bg=BG_SURFACE,
-                                       fg=ACCENT_YELLOW, font=("微软雅黑", 8))
-        self._azimuth_label.pack(anchor="w", pady=(0, 2))
-        self._elev_label = tk.Label(right_col, text="", bg=BG_SURFACE,
-                                    fg=ACCENT_YELLOW, font=("微软雅黑", 8))
-        self._elev_label.pack(anchor="w", pady=(0, 2))
-        self._light_kw_label = tk.Label(right_col, text="", bg=BG_SURFACE,
-                                        fg=ACCENT_GREEN, font=("微软雅黑", 8),
-                                        wraplength=160, justify=tk.LEFT)
-        self._light_kw_label.pack(anchor="w")
-        self._update_light_labels()
-
-        ttk.Separator(outer, orient="horizontal").pack(fill=tk.X, padx=16, pady=6)
-
-        # ── 轮廓光 ──
-        sec4 = tk.Frame(outer, bg=BG_SURFACE)
-        sec4.pack(fill=tk.X, padx=16, pady=(0, 12))
-        tk.Label(sec4, text="✨ 轮廓光 Rim Light", bg=BG_SURFACE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        self._rim_btn = tk.Button(
-            sec4, text="○ 关", bg=BG_HOVER, fg=FG_PRIMARY,
-            relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=10, pady=2,
-            cursor="hand2", command=self._toggle_rim_light,
-        )
-        self._rim_btn.pack(side=tk.RIGHT)
+        build_preset_tab(self)
+        build_params_tab(self)
+        build_camera_tab(self)
+        build_filter_tab(self)
+        build_subject_tab(self)
+        build_style_tab(self)
+        build_detail_tab(self)
+        build_extractor_tab(self)
 
     # ── 滑条回调 ───────────────────────────────────────────────
     def _on_shot_change(self):
@@ -691,150 +496,12 @@ class CameraBuilder(tk.Toplevel):
         self._generate()
 
     # ── Tab3：滤镜积木 ────────────────────────────────────────────
-    def _build_tab_filter(self):
-        self.filter_toggles.clear()
-        self.filter_labels.clear()
-        self.filter_custom_vars.clear()
 
-        _, inner = make_scroll_canvas(self.tab_filter, bg=BG_BASE)
-        tk.Label(inner, text="点击关键词选中（高亮），再点取消。每组下方可添加自定义词块。",
-                 bg=BG_BASE, fg=FG_DIM, font=("微软雅黑", 8)).pack(anchor="w", padx=10, pady=(8, 4))
 
-        for category, words in FILTER_KEYWORDS.items():
-            self._make_filter_group(inner, category, words)
 
-    def _make_filter_group(self, parent, category, words):
-        group = tk.Frame(parent, bg=BG_BASE)
-        group.pack(fill=tk.X, padx=10, pady=(6, 2))
-
-        tk.Label(group, text=category, bg=BG_BASE, fg=ACCENT_PURPLE,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w")
-
-        btn_grid = tk.Frame(group, bg=BG_BASE)
-        btn_grid.pack(fill=tk.X, pady=(4, 0))
-
-        row_idx, col_idx, cols = 0, 0, 3
-        for display_label, english_keyword in words:
-            bv = tk.BooleanVar(value=False)
-            self.filter_toggles[english_keyword] = bv
-            self.filter_labels[english_keyword] = display_label
-            btn = self._make_toggle_btn(btn_grid, display_label, english_keyword, bv)
-            btn_grid.grid_columnconfigure(col_idx, weight=1)
-            btn.grid(row=row_idx, column=col_idx, padx=3, pady=2, sticky="ew")
-            col_idx += 1
-            if col_idx >= cols:
-                col_idx = 0
-                row_idx += 1
-
-        custom_row = tk.Frame(group, bg=BG_BASE)
-        custom_row.pack(fill=tk.X, pady=(6, 0))
-        sv = tk.StringVar()
-        self.filter_custom_vars[category] = sv
-        HINT = "自定义词块：中文 / english keyword"
-        entry = tk.Entry(custom_row, textvariable=sv, bg=BG_CARD, fg=FG_DIM,
-                         insertbackground=FG_PRIMARY, relief=tk.FLAT, font=("微软雅黑", 9))
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
-        entry.insert(0, HINT)
-        entry.bind("<FocusIn>",  lambda _e, ent=entry, h=HINT: self._hint_focus_in(ent, h))
-        entry.bind("<FocusOut>", lambda _e, ent=entry, h=HINT: self._hint_focus_out(ent, h))
-        tk.Button(custom_row, text="+ 添加", bg=ACCENT_BLUE, fg=DARK_TEXT, relief=tk.FLAT,
-                  font=("微软雅黑", 8, "bold"), padx=10, pady=3, cursor="hand2",
-                  activebackground=ACCENT_BLUE,
-                  command=lambda bg=btn_grid, ent=entry, ri=[row_idx], ci=[col_idx], co=cols:
-                      self._add_custom_filter_btn(bg, ent, ri, ci, co)
-                  ).pack(side=tk.LEFT, padx=(6, 0))
-
-    def _make_toggle_btn(self, parent, display_label, english_keyword, bv):
-        btn_ref = [None]
-        def toggle():
-            bv.set(not bv.get())
-            btn_ref[0].config(
-                bg=ACCENT_PURPLE if bv.get() else BG_CARD,
-                fg=DARK_TEXT if bv.get() else FG_PRIMARY,
-            )
-            self._generate()
-        b = tk.Button(parent, text=display_label, bg=BG_CARD, fg=FG_PRIMARY,
-                      relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=6,
-                      cursor="hand2", activebackground=BG_HOVER,
-                      wraplength=170, justify=tk.LEFT, command=toggle)
-        btn_ref[0] = b
-        Tooltip(b, f"英文关键词：{english_keyword}\n点击选中（高亮），再点取消。选中后加入生成结果。")
-        return b
-
-    def _add_custom_filter_btn(self, grid_frame, entry, row_idx_ref, col_idx_ref, cols):
-        HINT = "自定义词块：中文 / english keyword"
-        raw = entry.get().strip()
-        if not raw or raw == HINT:
-            return
-        if "/" in raw:
-            display_label = raw
-            english_keyword = raw.split("/")[-1].strip()
-        else:
-            display_label = raw
-            english_keyword = raw
-        if english_keyword in self.filter_toggles:
-            return
-        bv = tk.BooleanVar(value=True)
-        self.filter_toggles[english_keyword] = bv
-        self.filter_labels[english_keyword] = display_label
-        btn = self._make_toggle_btn(grid_frame, display_label, english_keyword, bv)
-        btn.config(bg=ACCENT_PURPLE, fg=DARK_TEXT)
-        ri, ci = row_idx_ref[0], col_idx_ref[0]
-        grid_frame.grid_columnconfigure(ci, weight=1)
-        btn.grid(row=ri, column=ci, padx=3, pady=2, sticky="ew")
-        col_idx_ref[0] += 1
-        if col_idx_ref[0] >= cols:
-            col_idx_ref[0] = 0
-            row_idx_ref[0] += 1
-        entry.delete(0, tk.END)
-        entry.insert(0, HINT)
-        entry.config(fg=FG_DIM)
-        self._generate()
 
     # ── Tab4：预设 ────────────────────────────────────────────────
-    def _build_tab_preset(self):
-        _, inner = make_scroll_canvas(self.tab_preset, bg=BG_BASE)
 
-        tk.Label(inner, text="🎬 经典电影预设（实拍模式）", bg=BG_BASE, fg=ACCENT_BLUE,
-                 font=("微软雅黑", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 6))
-        self._make_preset_grid(inner, PRESETS_REAL, anime_mode=False)
-
-        ttk.Separator(inner, orient="horizontal").pack(fill=tk.X, padx=12, pady=12)
-
-        tk.Label(inner, text="🌸 动画风格预设（二次元模式）", bg=BG_BASE, fg=ACCENT_PURPLE,
-                 font=("微软雅黑", 10, "bold")).pack(anchor="w", padx=12, pady=(0, 6))
-        self._make_preset_grid(inner, PRESETS_ANIME, anime_mode=True)
-
-        ttk.Separator(inner, orient="horizontal").pack(fill=tk.X, padx=12, pady=12)
-        tk.Label(inner, text="💡 点击预设会自动切换模式并填充参数，之后可在参数页微调。",
-                 bg=BG_BASE, fg=FG_DIM, font=("微软雅黑", 9)).pack(anchor="w", padx=12, pady=(0, 12))
-
-    def _make_preset_grid(self, parent, presets_dict, anime_mode):
-        from features.camera_builder.presets import PRESETS_REAL, PRESETS_ANIME
-        grid = tk.Frame(parent, bg=BG_BASE)
-        grid.pack(fill=tk.X, padx=12, pady=(0, 4))
-        cols, row_idx, col_idx = 3, 0, 0
-        preset_data = PRESETS_ANIME if anime_mode else PRESETS_REAL
-        for name in presets_dict:
-            grid.grid_columnconfigure(col_idx, weight=1)
-            pdata = preset_data.get(name, {})
-            tip_parts = [f"🎬 {name}"]
-            if "_extra" in pdata:
-                tip_parts.append(f"风格词：{pdata['_extra'][:60]}…")
-            tip_parts.append("点击应用此预设，自动填充所有参数。")
-            b = tk.Button(
-                grid, text=name, bg=BG_CARD, fg=FG_PRIMARY,
-                relief=tk.FLAT, font=("微软雅黑", 9), padx=10, pady=10,
-                cursor="hand2", activebackground=BG_HOVER,
-                wraplength=200, justify=tk.LEFT,
-                command=lambda n=name, a=anime_mode: self._apply_preset(n, a),
-            )
-            b.grid(row=row_idx, column=col_idx, padx=4, pady=3, sticky="ew")
-            Tooltip(b, "\n".join(tip_parts))
-            col_idx += 1
-            if col_idx >= cols:
-                col_idx = 0
-                row_idx += 1
 
     def _apply_preset(self, name, anime_mode):
         self.is_anime.set(anime_mode)
@@ -843,7 +510,7 @@ class CameraBuilder(tk.Toplevel):
             bg=ACCENT_PURPLE if anime_mode else BG_HOVER,
             fg=DARK_TEXT if anime_mode else FG_PRIMARY,
         )
-        self._render_params()
+        render_params(self)
 
         preset = (PRESETS_ANIME if anime_mode else PRESETS_REAL)[name]
         params = PARAMS_ANIME if anime_mode else PARAMS_REAL
@@ -869,93 +536,7 @@ class CameraBuilder(tk.Toplevel):
     _SUBJECT_HINT = "描述主体（人物/动物/物体）..."
     _ENVIRON_HINT = "描述场景环境（地点/时间/背景）..."
 
-    def _build_tab_subject(self):
-        _, inner = make_scroll_canvas(self.tab_subject, bg=BG_BASE)
 
-        # ── 主体描述 ─────────────────────────────────────────────
-        tk.Label(inner, text="✍ 主体描述", bg=BG_BASE, fg=ACCENT_CYAN,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
-
-        self.subject_text = tk.Text(inner, bg=BG_CARD, fg=FG_PRIMARY,
-                                    insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                    font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
-                                    height=3)
-        self.subject_text.pack(fill=tk.X, padx=10, pady=(0, 4))
-        self.subject_text.insert("1.0", self._SUBJECT_HINT)
-        self.subject_text.config(fg=FG_DIM)
-        self.subject_text.bind("<FocusIn>",  lambda _e: self._text_focus_in(self.subject_text, self._SUBJECT_HINT))
-        self.subject_text.bind("<FocusOut>", lambda _e: self._text_focus_out(self.subject_text, self._SUBJECT_HINT))
-        self.subject_text.bind("<KeyRelease>", lambda _e: self._generate())
-
-        # 主体快捷词块
-        tk.Label(inner, text="角色词块:", bg=BG_BASE, fg=FG_DIM,
-                 font=("微软雅黑", 8)).pack(anchor="w", padx=10)
-        self._subject_chips_frame = tk.Frame(inner, bg=BG_BASE)
-        self._subject_chips_frame.pack(fill=tk.X, padx=10, pady=(2, 4))
-        self._fill_chips(self._subject_chips_frame, self.subject_text,
-                         SUBJECT_CHIPS_ANIME if self.is_anime.get() else SUBJECT_CHIPS_REAL)
-
-        # 人数词块
-        tk.Label(inner, text="人数/关系:", bg=BG_BASE, fg=FG_DIM,
-                 font=("微软雅黑", 8)).pack(anchor="w", padx=10)
-        self._count_chips_frame = tk.Frame(inner, bg=BG_BASE)
-        self._count_chips_frame.pack(fill=tk.X, padx=10, pady=(2, 10))
-        self._fill_chips(self._count_chips_frame, self.subject_text,
-                         SUBJECT_COUNT_ANIME if self.is_anime.get() else SUBJECT_COUNT_REAL)
-
-        # ── 场景环境 ─────────────────────────────────────────────
-        tk.Label(inner, text="🌍 场景环境", bg=BG_BASE, fg=ACCENT_CYAN,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 2))
-
-        self.environ_text = tk.Text(inner, bg=BG_CARD, fg=FG_PRIMARY,
-                                    insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                    font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
-                                    height=3)
-        self.environ_text.pack(fill=tk.X, padx=10, pady=(0, 4))
-        self.environ_text.insert("1.0", self._ENVIRON_HINT)
-        self.environ_text.config(fg=FG_DIM)
-        self.environ_text.bind("<FocusIn>",  lambda _e: self._text_focus_in(self.environ_text, self._ENVIRON_HINT))
-        self.environ_text.bind("<FocusOut>", lambda _e: self._text_focus_out(self.environ_text, self._ENVIRON_HINT))
-        self.environ_text.bind("<KeyRelease>", lambda _e: self._generate())
-
-        # 场景快捷词块
-        tk.Label(inner, text="场景词块:", bg=BG_BASE, fg=FG_DIM,
-                 font=("微软雅黑", 8)).pack(anchor="w", padx=10)
-        self._environ_chips_frame = tk.Frame(inner, bg=BG_BASE)
-        self._environ_chips_frame.pack(fill=tk.X, padx=10, pady=(2, 4))
-        self._fill_chips(self._environ_chips_frame, self.environ_text,
-                         ENVIRONMENT_CHIPS_ANIME if self.is_anime.get() else ENVIRONMENT_CHIPS_REAL)
-
-        # 时间/天气词块
-        tk.Label(inner, text="时间/天气:", bg=BG_BASE, fg=FG_DIM,
-                 font=("微软雅黑", 8)).pack(anchor="w", padx=10)
-        self._weather_chips_frame = tk.Frame(inner, bg=BG_BASE)
-        self._weather_chips_frame.pack(fill=tk.X, padx=10, pady=(2, 10))
-        self._fill_chips(self._weather_chips_frame, self.environ_text,
-                         WEATHER_CHIPS_ANIME if self.is_anime.get() else WEATHER_CHIPS_REAL)
-
-    def _fill_chips(self, frame, target_text, chips):
-        for w in frame.winfo_children():
-            w.destroy()
-        for chip in chips:
-            if isinstance(chip, tuple):
-                english, chinese = chip
-                display = f"{chinese}\n{english}"
-                output = english
-            else:
-                display = chip
-                output = chip
-            b = tk.Button(
-                frame, text=display, bg=BG_CARD, fg=FG_PRIMARY, relief=tk.FLAT,
-                font=("微软雅黑", 8), padx=8, pady=4, cursor="hand2",
-                activebackground=BG_HOVER, wraplength=120, justify=tk.CENTER,
-                command=lambda c=output, t=target_text: self._append_chip(t, c),
-            )
-            b.pack(side=tk.LEFT, padx=(0, 4), pady=2)
-            if isinstance(chip, tuple):
-                Tooltip(b, f"{chinese}\n英文：{output}\n点击追加到文本框。")
-            else:
-                Tooltip(b, f"{output}\n点击追加到文本框。")
 
     def _append_chip(self, text_widget, chip):
         current = text_widget.get("1.0", tk.END).strip()
@@ -979,206 +560,43 @@ class CameraBuilder(tk.Toplevel):
 
     def _refresh_subject_chips(self):
         if self._subject_chips_frame and self._subject_chips_frame.winfo_exists():
-            self._fill_chips(self._subject_chips_frame, self.subject_text,
+            fill_chips(self, self._subject_chips_frame, self.subject_text,
                              SUBJECT_CHIPS_ANIME if self.is_anime.get() else SUBJECT_CHIPS_REAL)
         if self._count_chips_frame and self._count_chips_frame.winfo_exists():
-            self._fill_chips(self._count_chips_frame, self.subject_text,
+            fill_chips(self, self._count_chips_frame, self.subject_text,
                              SUBJECT_COUNT_ANIME if self.is_anime.get() else SUBJECT_COUNT_REAL)
         if self._environ_chips_frame and self._environ_chips_frame.winfo_exists():
-            self._fill_chips(self._environ_chips_frame, self.environ_text,
+            fill_chips(self, self._environ_chips_frame, self.environ_text,
                              ENVIRONMENT_CHIPS_ANIME if self.is_anime.get() else ENVIRONMENT_CHIPS_REAL)
         if self._weather_chips_frame and self._weather_chips_frame.winfo_exists():
-            self._fill_chips(self._weather_chips_frame, self.environ_text,
+            fill_chips(self, self._weather_chips_frame, self.environ_text,
                              WEATHER_CHIPS_ANIME if self.is_anime.get() else WEATHER_CHIPS_REAL)
 
     # ── Tab6：风格情绪 ────────────────────────────────────────────
-    def _build_tab_style(self):
-        _, inner = make_scroll_canvas(self.tab_style, bg=BG_BASE)
 
-        tk.Label(inner, text="🎨 风格", bg=BG_BASE, fg=ACCENT_BLUE,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
-        self._style_grid = tk.Frame(inner, bg=BG_BASE)
-        self._style_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._style_grid, self.style_toggles,
-                               STYLE_ANIME if self.is_anime.get() else STYLE_REAL, cols=4)
-
-        tk.Label(inner, text="🏛 美学流派", bg=BG_BASE, fg=ACCENT_PURPLE,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 4))
-        self._aesthetic_grid = tk.Frame(inner, bg=BG_BASE)
-        self._aesthetic_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._aesthetic_grid, self.aesthetic_toggles,
-                               AESTHETIC_ANIME if self.is_anime.get() else AESTHETIC_REAL, cols=4)
-
-        tk.Label(inner, text="💫 情绪氛围", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 4))
-        self._mood_grid = tk.Frame(inner, bg=BG_BASE)
-        self._mood_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._mood_grid, self.mood_toggles,
-                               MOOD_ANIME if self.is_anime.get() else MOOD_REAL, cols=4)
-
-        motion_row = tk.Frame(inner, bg=BG_BASE)
-        motion_row.pack(fill=tk.X, padx=10, pady=(6, 10))
-        tk.Label(motion_row, text="🏃 动作/动态:", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-
-        _MOTION_ZH = {
-            "（不指定）": "（不指定）",
-            "walking slowly": "缓步行走",
-            "running at full speed": "全速奔跑",
-            "jumping mid-air": "腾空跳跃",
-            "standing still, slight breeze": "静立，微风轻抚",
-            "dancing gracefully": "优雅起舞",
-            "reaching out hand": "伸手向前",
-            "looking back over shoulder": "回眸望向肩后",
-            "crouching low": "低身蹲伏",
-            "falling": "坠落",
-            "floating": "漂浮",
-            "sitting cross-legged": "盘腿而坐",
-            "kneeling": "单膝跪地",
-            "lying down": "平躺",
-            "looking up at sky": "仰望天空",
-            "arms raised": "双臂举起",
-        }
-
-        ttk.Combobox(motion_row, textvariable=self.motion_var, values=MOTION_OPTIONS,
-                     state="readonly", width=28, font=("微软雅黑", 9)
-                     ).pack(side=tk.LEFT, padx=(8, 0), ipady=3)
-        self._motion_zh_lbl = tk.Label(motion_row, text="", bg=BG_BASE, fg=FG_MUTED,
-                                       font=("微软雅黑", 8))
-        self._motion_zh_lbl.pack(side=tk.LEFT, padx=(8, 0))
-
-        def _update_motion_zh(*_):
-            zh = _MOTION_ZH.get(self.motion_var.get(), "")
-            self._motion_zh_lbl.config(text=f"（{zh}）" if zh and zh != "（不指定）" else "")
-            self._generate()
-
-        self.motion_var.trace_add("write", _update_motion_zh)
-
-    def _fill_toggle_grid(self, grid_frame, toggles_dict, data, cols=4):
-        # 保留已�� BoolVar 的状态（供风格提炼器等外部设置使用）
-        saved_state = {kw: bv.get() for kw, bv in toggles_dict.items()}
-        for w in grid_frame.winfo_children():
-            w.destroy()
-        toggles_dict.clear()
-        for c in range(cols):
-            grid_frame.grid_columnconfigure(c, weight=1)
-        for idx, (kw, zh) in enumerate(data):
-            bv = tk.BooleanVar(value=saved_state.get(kw, False))
-            toggles_dict[kw] = bv
-            row_i, col_i = divmod(idx, cols)
-            btn_ref = [None]
-            display = f"{kw}\n{zh}"
-
-            def _toggle(b=bv, br=btn_ref):
-                b.set(not b.get())
-                br[0].config(bg=ACCENT_BLUE if b.get() else BG_CARD,
-                             fg=DARK_TEXT if b.get() else FG_PRIMARY)
-                self._generate()
-
-            btn = tk.Button(grid_frame, text=display, bg=BG_CARD, fg=FG_PRIMARY,
-                            relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=6,
-                            cursor="hand2", activebackground=BG_HOVER,
-                            wraplength=130, justify=tk.CENTER, command=_toggle)
-            btn_ref[0] = btn
-            btn.grid(row=row_i, column=col_i, padx=3, pady=2, sticky="ew")
-            Tooltip(btn, f"{zh}\n{kw}\n点击选中/取消，选中后加入生成结果。")
 
     def _refresh_style_blocks(self):
         if self._style_grid and self._style_grid.winfo_exists():
-            self._fill_toggle_grid(self._style_grid, self.style_toggles,
+            fill_toggle_grid(self, self._style_grid, self.style_toggles,
                                    STYLE_ANIME if self.is_anime.get() else STYLE_REAL, cols=4)
         if self._aesthetic_grid and self._aesthetic_grid.winfo_exists():
-            self._fill_toggle_grid(self._aesthetic_grid, self.aesthetic_toggles,
+            fill_toggle_grid(self, self._aesthetic_grid, self.aesthetic_toggles,
                                    AESTHETIC_ANIME if self.is_anime.get() else AESTHETIC_REAL, cols=4)
         if self._mood_grid and self._mood_grid.winfo_exists():
-            self._fill_toggle_grid(self._mood_grid, self.mood_toggles,
+            fill_toggle_grid(self, self._mood_grid, self.mood_toggles,
                                    MOOD_ANIME if self.is_anime.get() else MOOD_REAL, cols=4)
 
     # ── Tab7：细节技术 ────────────────────────────────────────────
-    def _build_tab_detail(self):
-        _, inner = make_scroll_canvas(self.tab_detail, bg=BG_BASE)
-
-        # ── 质量词块 ─────────────────────────────────────────────
-        tk.Label(inner, text="⭐ 质量词块", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
-        self._quality_grid = tk.Frame(inner, bg=BG_BASE)
-        self._quality_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._quality_grid, self.quality_toggles,
-                               QUALITY_CHIPS_ANIME if self.is_anime.get() else QUALITY_CHIPS_REAL, cols=4)
-
-        # ── 细节质感 ─────────────────────────────────────────────
-        tk.Label(inner, text="🔬 细节质感", bg=BG_BASE, fg=ACCENT_GREEN,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 4))
-        self._texture_grid = tk.Frame(inner, bg=BG_BASE)
-        self._texture_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._texture_grid, self.texture_toggles,
-                               TEXTURE_ANIME if self.is_anime.get() else TEXTURE_REAL, cols=4)
-
-        # ── 色彩补充 ─────────────────────────────────────────────
-        tk.Label(inner, text="🌈 色彩补充", bg=BG_BASE, fg=ACCENT_ORANGE,
-                 font=("微软雅黑", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 4))
-        self._color_grid = tk.Frame(inner, bg=BG_BASE)
-        self._color_grid.pack(fill=tk.X, padx=10, pady=(0, 8))
-        self._fill_toggle_grid(self._color_grid, self.color_toggles,
-                               COLOR_SUPPLEMENT_ANIME if self.is_anime.get() else COLOR_SUPPLEMENT_REAL, cols=3)
-
-        # ── 技术参数 ─────────────────────────────────────────────
-        tech_row = tk.Frame(inner, bg=BG_BASE)
-        tech_row.pack(fill=tk.X, padx=10, pady=(6, 4))
-        tk.Label(tech_row, text="渲染引擎:", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        ttk.Combobox(tech_row, textvariable=self.render_var, values=RENDER_ENGINES,
-                     state="readonly", width=18, font=("微软雅黑", 9)
-                     ).pack(side=tk.LEFT, padx=(6, 16), ipady=3)
-        tk.Label(tech_row, text="输出比例:", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        ttk.Combobox(tech_row, textvariable=self.ratio_var, values=OUTPUT_RATIOS,
-                     state="readonly", width=10, font=("微软雅黑", 9)
-                     ).pack(side=tk.LEFT, padx=(6, 0), ipady=3)
-        self.render_var.trace_add("write", lambda *_: self._generate())
-        self.ratio_var.trace_add("write", lambda *_: self._generate())
-
-        # ── 负面提示词 ────────────────────────────────────────────
-        neg_label_row = tk.Frame(inner, bg=BG_BASE)
-        neg_label_row.pack(fill=tk.X, padx=10, pady=(10, 4))
-        tk.Label(neg_label_row, text="🚫 负面提示词", bg=BG_BASE, fg=ACCENT_RED,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        tk.Label(neg_label_row, text="（结果显示在右侧预览）", bg=BG_BASE, fg=FG_DIM,
-                 font=("微软雅黑", 8)).pack(side=tk.LEFT, padx=(6, 0))
-
-        # 预设按钮行
-        neg_preset_row = tk.Frame(inner, bg=BG_BASE)
-        neg_preset_row.pack(fill=tk.X, padx=10, pady=(0, 4))
-        for label, key in [("通用", "通用"), ("实拍专用", "实拍专用"), ("动画专用", "动画专用")]:
-            b = tk.Button(
-                neg_preset_row, text=f"+ {label}",
-                bg=BG_CARD, fg=ACCENT_RED, relief=tk.FLAT,
-                font=("微软雅黑", 8, "bold"), padx=10, pady=3, cursor="hand2",
-                activebackground=BG_HOVER,
-                command=lambda k=key: self._fill_neg_preset(k),
-            )
-            b.pack(side=tk.LEFT, padx=(0, 6))
-            tips = {"通用": "通用负面词\n追加常用负面词（模糊/低质/水印/多余文字/解剖错误等），适合所有风格。",
-                    "实拍专用": "实拍摄影负面词\n追加实拍摄影专用排除词（卡通/插画/手绘等风格偏差词）。",
-                    "动画专用": "动画/二次元负面词\n追加动漫/插画专用排除词（写实质感/照片感等风格偏差词）。"}
-            Tooltip(b, tips.get(key, f"追加{label}负面词预设"))
-
-        self.neg_text = tk.Text(inner, bg=BG_CARD, fg=FG_MUTED,
-                                insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
-                                height=4)
-        self.neg_text.pack(fill=tk.X, padx=10, pady=(0, 10))
-        self.neg_text.bind("<KeyRelease>", lambda _e: self._generate())
 
     def _refresh_detail_blocks(self):
         if self._quality_grid and self._quality_grid.winfo_exists():
-            self._fill_toggle_grid(self._quality_grid, self.quality_toggles,
+            fill_toggle_grid(self, self._quality_grid, self.quality_toggles,
                                    QUALITY_CHIPS_ANIME if self.is_anime.get() else QUALITY_CHIPS_REAL, cols=4)
         if self._texture_grid and self._texture_grid.winfo_exists():
-            self._fill_toggle_grid(self._texture_grid, self.texture_toggles,
+            fill_toggle_grid(self, self._texture_grid, self.texture_toggles,
                                    TEXTURE_ANIME if self.is_anime.get() else TEXTURE_REAL, cols=4)
         if self._color_grid and self._color_grid.winfo_exists():
-            self._fill_toggle_grid(self._color_grid, self.color_toggles,
+            fill_toggle_grid(self, self._color_grid, self.color_toggles,
                                    COLOR_SUPPLEMENT_ANIME if self.is_anime.get() else COLOR_SUPPLEMENT_REAL, cols=3)
 
     def _fill_neg_preset(self, key):
@@ -1195,103 +613,6 @@ class CameraBuilder(tk.Toplevel):
         self._generate()
 
     # ── Tab8：风格提炼器 ──────────────────────────────────────────
-    def _build_tab_extractor(self):
-        from features.camera_builder.presets import ANIME_STYLE_EXTRACTOR_PRESETS
-        self._extractor_presets = ANIME_STYLE_EXTRACTOR_PRESETS
-
-        self._extractor_detail_var = tk.StringVar(value="")
-        self._extractor_btn_refs = {}   # idx → button widget，用于高亮选中
-
-        # ── 左右可调分栏 ──────────────────────────────────────────
-        h_paned = ttk.PanedWindow(self.tab_extractor, orient=tk.HORIZONTAL)
-        h_paned.pack(fill=tk.BOTH, expand=True)
-
-        # ── 左侧：预设列表（可滚动） ──────────────────────────────
-        left_host = tk.Frame(h_paned, bg=BG_BASE)
-        h_paned.add(left_host, weight=1)
-        _, left_inner = make_scroll_canvas(left_host, bg=BG_BASE)
-
-        tk.Label(left_inner,
-                 text="点击风格预设 → 右侧查看详情，再点[应用]激活风格词块",
-                 bg=BG_BASE, fg=FG_DIM, font=("微软雅黑", 8),
-                 wraplength=200, justify=tk.LEFT).pack(anchor="w", padx=10, pady=(8, 4))
-
-        categories = {}
-        for i, preset in enumerate(self._extractor_presets):
-            cat = preset.get("category", "其他")
-            categories.setdefault(cat, []).append((i, preset))
-
-        for cat, items in categories.items():
-            cat_frame = tk.Frame(left_inner, bg=BG_BASE)
-            cat_frame.pack(fill=tk.X, padx=10, pady=(6, 0))
-            tk.Label(cat_frame, text=cat, bg=BG_BASE, fg=ACCENT_PURPLE,
-                     font=("微软雅黑", 9, "bold")).pack(anchor="w")
-            btn_row = tk.Frame(cat_frame, bg=BG_BASE)
-            btn_row.pack(fill=tk.X, pady=(4, 0))
-            for i, preset in items:
-                b = tk.Button(
-                    btn_row, text=preset["name"], bg=BG_CARD, fg=FG_PRIMARY,
-                    relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=6,
-                    cursor="hand2", activebackground=BG_HOVER,
-                    command=lambda idx=i: self._select_extractor_preset(idx),
-                )
-                b.pack(side=tk.LEFT, padx=(0, 6), pady=2)
-                self._extractor_btn_refs[i] = b
-
-        # ── 右侧：风格详情 + 操作按钮 ────────────────────────────
-        right_host = tk.Frame(h_paned, bg=BG_BASE)
-        h_paned.add(right_host, weight=1)
-
-        right_top = tk.Frame(right_host, bg=BG_BASE)
-        right_top.pack(fill=tk.X, padx=10, pady=(10, 4))
-        tk.Label(right_top, text="风格详情", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        self._extractor_match_lbl = tk.Label(right_top, text="", bg=BG_BASE,
-                                              fg=ACCENT_GREEN, font=("微软雅黑", 8))
-        self._extractor_match_lbl.pack(side=tk.LEFT, padx=(8, 0))
-
-        self._extractor_detail_text = tk.Text(
-            right_host, bg=BG_SURFACE, fg=FG_PRIMARY, relief=tk.FLAT,
-            font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
-            state=tk.DISABLED,
-        )
-        self._extractor_detail_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 8))
-
-        # 操作按钮行
-        act_row = tk.Frame(right_host, bg=BG_BASE)
-        act_row.pack(fill=tk.X, padx=10, pady=(0, 6))
-
-        self._extractor_apply_btn = tk.Button(
-            act_row, text="🎭 应用风格词块", bg=ACCENT_BLUE, fg=DARK_TEXT,
-            relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
-            cursor="hand2", activebackground=ACCENT_BLUE,
-            state=tk.DISABLED,
-            command=self._extractor_apply_style,
-        )
-        self._extractor_apply_btn.pack(side=tk.LEFT, padx=(0, 6))
-        Tooltip(self._extractor_apply_btn,
-                "🎭 应用风格词块\n将当前风格预设的关键词激活到[风格情绪]页签对应的词块上，并自动跳转到风格情绪页签。")
-
-        tk.Button(
-            act_row, text="➕ 追加到附加词", bg=ACCENT_GREEN, fg=DARK_TEXT,
-            relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
-            cursor="hand2", activebackground=ACCENT_GREEN,
-            command=self._extractor_append_extra,
-        ).pack(side=tk.LEFT, padx=(0, 6))
-        Tooltip(act_row.winfo_children()[-1],
-                "➕ 追加到附加词\n将预设的所有关键词追加到右侧预览的附加词输入框，直接加入最终 Prompt 而不激活词块。")
-
-        tk.Button(
-            act_row, text="🗑 清除已选风格", bg=BG_HOVER, fg=FG_PRIMARY,
-            relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=4,
-            cursor="hand2", activebackground=BG_HOVER,
-            command=self._extractor_clear_style,
-        ).pack(side=tk.LEFT)
-        Tooltip(act_row.winfo_children()[-1],
-                "🗑 清除已选风格\n取消[风格情绪]页签中所有已激活的风格/美学/情绪词块，恢复全部为未选状态。")
-
-        # 延迟设置分割位置为 50%
-        self.after(30, lambda p=h_paned: p.sash_place(0, self.tab_extractor.winfo_width() // 2, 0))
 
     def _select_extractor_preset(self, idx):
         self._extractor_selected_idx = idx
@@ -1384,13 +705,13 @@ class CameraBuilder(tk.Toplevel):
     def _refresh_style_toggle_colors(self):
         """重新渲染风格/美学/情绪格子以反映当前 BooleanVar 状态"""
         if self._style_grid and self._style_grid.winfo_exists():
-            self._fill_toggle_grid(self._style_grid, self.style_toggles,
+            fill_toggle_grid(self, self._style_grid, self.style_toggles,
                                    STYLE_ANIME if self.is_anime.get() else STYLE_REAL, cols=4)
         if self._aesthetic_grid and self._aesthetic_grid.winfo_exists():
-            self._fill_toggle_grid(self._aesthetic_grid, self.aesthetic_toggles,
+            fill_toggle_grid(self, self._aesthetic_grid, self.aesthetic_toggles,
                                    AESTHETIC_ANIME if self.is_anime.get() else AESTHETIC_REAL, cols=4)
         if self._mood_grid and self._mood_grid.winfo_exists():
-            self._fill_toggle_grid(self._mood_grid, self.mood_toggles,
+            fill_toggle_grid(self, self._mood_grid, self.mood_toggles,
                                    MOOD_ANIME if self.is_anime.get() else MOOD_REAL, cols=4)
 
     def _extractor_append_extra(self):
@@ -1414,7 +735,7 @@ class CameraBuilder(tk.Toplevel):
             bg=ACCENT_PURPLE if on else BG_HOVER,
             fg=DARK_TEXT if on else FG_PRIMARY,
         )
-        self._render_params()
+        render_params(self)
         self._refresh_subject_chips()
         self._refresh_style_blocks()
         self._refresh_detail_blocks()
