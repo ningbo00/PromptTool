@@ -89,3 +89,60 @@ def test_parse_keywords_splits_comma_text():
         "soft light",
         "cinematic",
     ]
+
+
+def test_prepare_improve_by_score_requires_feedback():
+    service = AIOptimizeService()
+
+    try:
+        service.prepare_action("improve_by_score", original="a cat", feedback="")
+    except AIOptimizeValidationError as exc:
+        assert "评分建议" in str(exc)
+    else:
+        raise AssertionError("Expected validation error")
+
+
+def test_prepare_improve_by_score_uses_feedback_and_history_label():
+    service = AIOptimizeService()
+
+    request = service.prepare_action(
+        "improve_by_score",
+        original="a cat",
+        feedback="评分: 6/10",
+    )
+
+    assert request.history_label == "按评分建议优化"
+    assert "评分: 6/10" in request.messages[1]["content"]
+
+
+def test_prepare_expand_only_request():
+    service = AIOptimizeService()
+
+    request = service.prepare_action("expand_only", original="a cat")
+
+    assert request.history_label == "仅扩写"
+    assert request.temperature == 0.7
+
+
+def test_prepare_compliance_fix_requires_report():
+    service = AIOptimizeService()
+
+    try:
+        service.prepare_action("compliance_fix", original="a cat", feedback="")
+    except AIOptimizeValidationError as exc:
+        assert "合规检验报告" in str(exc)
+    else:
+        raise AssertionError("Expected validation error")
+
+
+def test_prepare_compliance_fix_uses_report():
+    service = AIOptimizeService()
+
+    request = service.prepare_action(
+        "compliance_fix",
+        original="a cat",
+        feedback="存在风险",
+    )
+
+    assert request.history_label == "合规修复"
+    assert "存在风险" in request.messages[1]["content"]

@@ -10,6 +10,7 @@ def build_ai_optimize_messages(
     original: str,
     direction: str = "",
     length: str = "中等",
+    feedback: str = "",
 ) -> list[dict]:
     length_hint = LENGTH_HINTS.get(length, "")
     builders = {
@@ -20,13 +21,21 @@ def build_ai_optimize_messages(
         "extract_keywords": _extract_keywords,
         "recommend_negative": _recommend_negative,
         "compliance_check": _compliance_check,
+        "improve_by_score": _improve_by_score,
+        "expand_only": _expand_only,
+        "compliance_fix": _compliance_fix,
     }
     if action not in builders:
         raise ValueError(f"Unknown AI optimize action: {action}")
-    return builders[action](original=original, direction=direction, length_hint=length_hint)
+    return builders[action](
+        original=original,
+        direction=direction,
+        length_hint=length_hint,
+        feedback=feedback,
+    )
 
 
-def _optimize_current(original: str, direction: str, length_hint: str) -> list[dict]:
+def _optimize_current(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -44,7 +53,7 @@ def _optimize_current(original: str, direction: str, length_hint: str) -> list[d
     ]
 
 
-def _zh_to_en(original: str, direction: str, length_hint: str) -> list[dict]:
+def _zh_to_en(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -61,7 +70,7 @@ def _zh_to_en(original: str, direction: str, length_hint: str) -> list[dict]:
     ]
 
 
-def _generate_variants(original: str, direction: str, length_hint: str) -> list[dict]:
+def _generate_variants(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -82,7 +91,7 @@ def _generate_variants(original: str, direction: str, length_hint: str) -> list[
     ]
 
 
-def _score(original: str, direction: str, length_hint: str) -> list[dict]:
+def _score(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -101,7 +110,7 @@ def _score(original: str, direction: str, length_hint: str) -> list[dict]:
     ]
 
 
-def _extract_keywords(original: str, direction: str, length_hint: str) -> list[dict]:
+def _extract_keywords(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -114,7 +123,7 @@ def _extract_keywords(original: str, direction: str, length_hint: str) -> list[d
     ]
 
 
-def _recommend_negative(original: str, direction: str, length_hint: str) -> list[dict]:
+def _recommend_negative(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -127,7 +136,7 @@ def _recommend_negative(original: str, direction: str, length_hint: str) -> list
     ]
 
 
-def _compliance_check(original: str, direction: str, length_hint: str) -> list[dict]:
+def _compliance_check(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
     return [
         {
             "role": "system",
@@ -137,4 +146,64 @@ def _compliance_check(original: str, direction: str, length_hint: str) -> list[d
             ),
         },
         {"role": "user", "content": original},
+    ]
+
+
+def _improve_by_score(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是专业的 AI 绘画 Prompt 优化专家。"
+                "用户会给你一段英文 Prompt 以及该 Prompt 的评分反馈、改进建议和矛盾检测结果，"
+                "请根据改进建议和矛盾检测对 Prompt 进行针对性优化（修复矛盾词、按建议改进）。"
+                "只输出优化后的 Prompt 文本，不要有任何解释、标题或额外说明。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"原始 Prompt：\n{original}\n\n"
+                f"评分与改进建议：\n{feedback}\n\n"
+                "请根据以上建议优化原始 Prompt："
+            ),
+        },
+    ]
+
+
+def _expand_only(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是 AI 绘画 Prompt 扩写专家。"
+                "不要修改或替换用户的原有内容，只在原始 Prompt 末尾追加新的细节词。"
+                "输出格式：原始内容, 【新增：追加的英文词/短语，逗号分隔】\n"
+                "追加词应与原内容风格一致，补充场景细节、光线质感、情绪氛围等，使用英文。"
+            ),
+        },
+        {"role": "user", "content": f"原始 Prompt：\n{original}"},
+    ]
+
+
+def _compliance_fix(original: str, direction: str, length_hint: str, feedback: str = "") -> list[dict]:
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是专业的 AI 绘画 Prompt 合规修复专家。"
+                "用户会给你一段英文 Prompt 和合规检验报告，"
+                "请将 Prompt 中的违规词/敏感词替换为语义相近但合规的表述，"
+                "保持整体风格和意图不变。"
+                "只输出修复后的英文 Prompt，不要任何解释。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"原始 Prompt：\n{original}\n\n"
+                f"合规检验报告：\n{feedback}\n\n"
+                "请修复违规内容："
+            ),
+        },
     ]

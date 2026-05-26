@@ -31,6 +31,9 @@ class AIOptimizeService:
         "extract_keywords": "提取关键词",
         "recommend_negative": "推荐负面词",
         "compliance_check": "合规检验",
+        "improve_by_score": "按评分建议优化",
+        "expand_only": "仅扩写",
+        "compliance_fix": "合规修复",
     }
 
     def __init__(self, custom_direction_label: str = "自定义指令（在下方输入）"):
@@ -43,10 +46,16 @@ class AIOptimizeService:
         direction: str = "",
         custom_direction: str = "",
         length: str = "中等",
+        feedback: str = "",
     ) -> AIOptimizeRequest:
         original = original.strip()
         if not original:
             raise AIOptimizeValidationError("原始 Prompt 为空")
+        feedback = feedback.strip()
+        if action == "improve_by_score" and not feedback:
+            raise AIOptimizeValidationError("请先点击「AI评分」获取评分建议")
+        if action == "compliance_fix" and not feedback:
+            raise AIOptimizeValidationError("请先完成合规检验，生成合规检验报告")
 
         resolved_direction = self.resolve_direction(direction, custom_direction)
         messages = build_ai_optimize_messages(
@@ -54,6 +63,7 @@ class AIOptimizeService:
             original=original,
             direction=resolved_direction,
             length=length,
+            feedback=feedback,
         )
         return AIOptimizeRequest(
             action=action,

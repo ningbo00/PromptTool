@@ -76,6 +76,38 @@ def test_build_compliance_check_messages():
     assert "敏感内容" in _content(messages, 0)
 
 
+def test_build_improve_by_score_messages():
+    messages = build_ai_optimize_messages(
+        action="improve_by_score",
+        original="a cat",
+        feedback="评分: 6/10",
+    )
+
+    assert "评分反馈" in _content(messages, 0)
+    assert "评分与改进建议" in _content(messages, 1)
+    assert "评分: 6/10" in _content(messages, 1)
+
+
+def test_build_expand_only_messages():
+    messages = build_ai_optimize_messages(action="expand_only", original="a cat")
+
+    assert "扩写专家" in _content(messages, 0)
+    assert "不要修改或替换" in _content(messages, 0)
+    assert "原始 Prompt" in _content(messages, 1)
+
+
+def test_build_compliance_fix_messages():
+    messages = build_ai_optimize_messages(
+        action="compliance_fix",
+        original="a cat",
+        feedback="存在风险",
+    )
+
+    assert "合规修复专家" in _content(messages, 0)
+    assert "合规检验报告" in _content(messages, 1)
+    assert "存在风险" in _content(messages, 1)
+
+
 def test_build_messages_rejects_unknown_action():
     try:
         build_ai_optimize_messages(action="unknown", original="a cat")

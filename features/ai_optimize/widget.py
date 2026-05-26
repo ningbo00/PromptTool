@@ -18,6 +18,12 @@ from core.services.ai_optimize_service import (
     AIOptimizeValidationError,
 )
 from features.ai_optimize.client import call_ai
+from features.ai_optimize.panels import (
+    ActionBar,
+    InsightsPanel,
+    InstructionPanel,
+    ResultPanel,
+)
 
 
 class AIOptimizeDialog(tk.Toplevel):
@@ -97,90 +103,26 @@ class AIOptimizeDialog(tk.Toplevel):
     #  UI 骨架
     # ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        instruction_panel = tk.Frame(self, bg=BG_SURFACE, padx=10, pady=8)
-        instruction_panel.pack(fill=tk.X, padx=12, pady=(10, 6))
-        tk.Label(instruction_panel, text="指令", bg=BG_SURFACE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 10, "bold")).pack(anchor="w", pady=(0, 6))
+        instruction = InstructionPanel(self, self.PRESETS, self._length_var)
+        self._preset_var = instruction.preset_var
+        self._custom_var = instruction.custom_var
+        self._hist_mb = instruction.history_button
+        self._history_menu = instruction.history_menu
 
-        row1 = tk.Frame(instruction_panel, bg=BG_SURFACE)
-        row1.pack(fill=tk.X, pady=(0, 4))
-
-        tk.Label(row1, text="优化方向:", bg=BG_SURFACE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        self._preset_var = tk.StringVar(value=self.PRESETS[0])
-        ttk.Combobox(row1, textvariable=self._preset_var, values=self.PRESETS,
-                     state="readonly", width=30, font=("微软雅黑", 9)
-                     ).pack(side=tk.LEFT, padx=(6, 12))
-
-        tk.Label(row1, text="输出长度:", bg=BG_SURFACE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        for lbl in ("简短", "中等", "详细"):
-            tk.Radiobutton(row1, text=lbl, variable=self._length_var, value=lbl,
-                           bg=BG_SURFACE, fg=FG_PRIMARY, activebackground=BG_SURFACE,
-                           selectcolor=BG_CARD, font=("微软雅黑", 9)
-                           ).pack(side=tk.LEFT, padx=(4, 0))
-
-        # 历史菜单（右侧）
-        self._hist_mb = tk.Menubutton(
-            row1, text="🕐 历史 ▾", bg=BG_HOVER, fg=FG_PRIMARY,
-            relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=8, pady=3,
-            cursor="hand2", activebackground=BG_HOVER,
-        )
-        self._hist_mb.pack(side=tk.RIGHT)
-        self._history_menu = tk.Menu(self._hist_mb, tearoff=0,
-                                     bg=BG_CARD, fg=FG_PRIMARY,
-                                     activebackground="#585b70", relief=tk.FLAT)
-        self._hist_mb.config(menu=self._history_menu)
-        self._history_menu.add_command(label="（暂无历史记录）", state=tk.DISABLED)
-
-        # ── 行 2：自定义指令 ────────────────────────────────────────
-        row2 = tk.Frame(instruction_panel, bg=BG_SURFACE)
-        row2.pack(fill=tk.X)
-        tk.Label(row2, text="自定义指令:", bg=BG_SURFACE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        self._custom_var = tk.StringVar()
-        tk.Entry(row2, textvariable=self._custom_var, bg=BG_CARD, fg=FG_PRIMARY,
-                 insertbackground=FG_PRIMARY, relief=tk.FLAT, font=("微软雅黑", 9)
-                 ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=(8, 0))
-
-        actions = tk.Frame(self, bg=BG_BASE)
-        actions.pack(fill=tk.X, padx=12, pady=(0, 6))
-
-        def _action_group(parent, title):
-            group = tk.Frame(parent, bg=BG_SURFACE, padx=8, pady=8)
-            group.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
-            tk.Label(group, text=title, bg=BG_SURFACE, fg=FG_MUTED,
-                     font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
-            row = tk.Frame(group, bg=BG_SURFACE)
-            row.pack(fill=tk.X)
-            return row
-
-        primary_row = _action_group(actions, "主要流程")
-        advanced_row = _action_group(actions, "高级工具")
-        result_row = _action_group(actions, "结果操作")
+        action_bar = ActionBar(self)
+        primary_row = action_bar.add_group("主要流程")
+        advanced_row = action_bar.add_group("高级工具")
+        result_row = action_bar.add_group("结果操作")
 
         def _abtn(text, cmd, color, state=tk.NORMAL, tip="", parent=primary_row):
             """action button — 统一加入 _action_btns 受 busy 控制"""
-            b = tk.Button(parent, text=text, command=cmd,
-                          bg=color, fg=DARK_TEXT, relief=tk.FLAT,
-                          font=("微软雅黑", 9, "bold"), padx=8, pady=3,
-                          cursor="hand2", activebackground=color, state=state)
-            b.pack(side=tk.LEFT, padx=(0, 4))
+            b = action_bar.action_button(parent, text, cmd, color, state=state, tip=tip)
             self._action_btns.append(b)
-            if tip:
-                Tooltip(b, tip)
             return b
 
         def _sbtn(text, cmd, color, state=tk.NORMAL, tip="", parent=result_row):
             """secondary button — 不加入 action_btns"""
-            b = tk.Button(parent, text=text, command=cmd,
-                          bg=color, fg=DARK_TEXT, relief=tk.FLAT,
-                          font=("微软雅黑", 9, "bold"), padx=8, pady=3,
-                          cursor="hand2", activebackground=color, state=state)
-            b.pack(side=tk.LEFT, padx=(0, 4))
-            if tip:
-                Tooltip(b, tip)
-            return b
+            return action_bar.action_button(parent, text, cmd, color, state=state, tip=tip)
 
         _abtn("🚀 发送",        self._run_ai,          ACCENT_BLUE,
               tip="🚀 发送\n按照所选[优化方向]，将原始 Prompt 发送给 AI 进行优化。\n首先在上方选择预设方向（如[优化英文语法]），然后点击此按钮。")
@@ -220,10 +162,7 @@ class AIOptimizeDialog(tk.Toplevel):
         # 此处先创建占位，等 bottom_area 创建后再重建
 
         # ── 底部固定区（状态栏 + 变体选择 + 关键词 + 评分 + 负面推荐，必须在 paned 前 pack） ──
-        bottom_area = tk.Frame(self, bg=BG_BASE)
-        bottom_area.pack(side=tk.BOTTOM, fill=tk.X)
-        tk.Label(bottom_area, text="Insights / 结果辅助", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(anchor="w", padx=12, pady=(4, 0))
+        bottom_area = InsightsPanel(self).frame
 
         # ── 变体选择区（放在 bottom_area 最顶部，紧贴结果区下方） ──
         self._variant_frame = tk.Frame(bottom_area, bg=BG_BASE)
@@ -316,22 +255,12 @@ class AIOptimizeDialog(tk.Toplevel):
         en_f = tk.Frame(vpaned, bg=BG_BASE)
         vpaned.add(en_f, weight=2)
 
-        hdr = tk.Frame(en_f, bg=BG_BASE)
-        hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="AI 优化结果", bg=BG_BASE, fg=ACCENT_GREEN,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        diff_cb = tk.Checkbutton(hdr, text="差异高亮", variable=self._diff_var,
-                       bg=BG_BASE, fg=FG_MUTED, activebackground=BG_BASE,
-                       selectcolor=BG_CARD, font=("微软雅黑", 8),
-                       command=self._toggle_diff)
-        diff_cb.pack(side=tk.LEFT, padx=(10, 0))
-        Tooltip(diff_cb, "差异高亮\n勾选后，对比原始 Prompt 和 AI 结果的差异：\n绿色 = 新增的词，红色删除线 = 被移除的词。")
-        copy_btn = tk.Button(hdr, text="📋 复制结果", command=self._copy_result,
-                  bg=BG_HOVER, fg=FG_PRIMARY, relief=tk.FLAT,
-                  font=("微软雅黑", 8), padx=8, pady=1,
-                  cursor="hand2", activebackground=BG_HOVER)
-        copy_btn.pack(side=tk.RIGHT)
-        Tooltip(copy_btn, "📋 复制结果\n直接将右侧 AI 结果复制到剪贴板，无需点[应用到编辑器]，适合直接粘贴使用。")
+        ResultPanel.build_header(
+            en_f,
+            self._diff_var,
+            self._toggle_diff,
+            self._copy_result,
+        )
 
         en_text = tk.Text(en_f, bg=BG_SURFACE, fg=ACCENT_GREEN, relief=tk.FLAT,
                           font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
@@ -544,15 +473,17 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 2b：按评分建议优化
     # ─────────────────────────────────────────────────────────────
     def _improve_by_score(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
-            return
         self._score_text.config(state=tk.NORMAL)
         score_feedback = self._score_text.get("1.0", tk.END).strip()
         self._score_text.config(state=tk.DISABLED)
-        if not score_feedback or score_feedback.startswith("（"):
-            messagebox.showinfo("提示", "请先点击「🎯 AI评分」获取评分建议", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "improve_by_score",
+                original=self._get_orig(),
+                feedback="" if score_feedback.startswith("（") else score_feedback,
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
 
         self._set_status("⏳ 正在根据评分建议优化…")
@@ -563,23 +494,12 @@ class AIOptimizeDialog(tk.Toplevel):
         self._result_zh_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是专业的 AI 绘画 Prompt 优化专家。"
-                "用户会给你一段英文 Prompt 以及该 Prompt 的评分反馈、改进建议和矛盾检测结果，"
-                "请根据改进建议和矛盾检测对 Prompt 进行针对性优化（修复矛盾词、按建议改进）。"
-                "只输出优化后的 Prompt 文本，不要有任何解释、标题或额外说明。"},
-            {"role": "user", "content":
-                f"原始 Prompt：\n{original}\n\n"
-                f"评分与改进建议：\n{score_feedback}\n\n"
-                f"请根据以上建议优化原始 Prompt："},
-        ]
 
         def _on_ok(text):
             def _show():
                 self._set_result(text)
                 self._enable_apply()
-                self._push_history("按评分建议优化", text)
+                self._push_history(request.history_label, text)
                 self._set_busy(False)
                 self._show_result_zh(text, "✓ 按评分建议优化完成")
                 if self._diff_var.get():
@@ -594,7 +514,8 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     # ─────────────────────────────────────────────────────────────
@@ -922,9 +843,13 @@ class AIOptimizeDialog(tk.Toplevel):
     #  功能 8：仅扩写
     # ─────────────────────────────────────────────────────────────
     def _expand_only(self):
-        original = self._get_orig()
-        if not original:
-            messagebox.showinfo("提示", "原始 Prompt 为空", parent=self)
+        try:
+            request = self._ai_service.prepare_action(
+                "expand_only",
+                original=self._get_orig(),
+            )
+        except AIOptimizeValidationError as exc:
+            messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ 扩写中…")
         self._set_busy(True)
@@ -934,20 +859,12 @@ class AIOptimizeDialog(tk.Toplevel):
         self._result_zh_text.config(state=tk.DISABLED)
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是 AI 绘画 Prompt 扩写专家。"
-                "不要修改或替换用户的原有内容，只在原始 Prompt 末尾追加新的细节词。"
-                "输出格式：原始内容, 【新增：追加的英文词/短语，逗号分隔】\n"
-                "追加词应与原内容风格一致，补充场景细节、光线质感、情绪氛围等，使用英文。"},
-            {"role": "user", "content": f"原始 Prompt：\n{original}"},
-        ]
 
         def _on_ok(text):
             def _show():
                 self._set_result(text)
                 self._enable_apply()
-                self._push_history("仅扩写", text)
+                self._push_history(request.history_label, text)
                 self._set_busy(False)
                 self._show_result_zh(text, "✓ 扩写完成")
                 if self._diff_var.get():
@@ -962,7 +879,8 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
     # ─────────────────────────────────────────────────────────────
@@ -1259,32 +1177,25 @@ class AIOptimizeDialog(tk.Toplevel):
                 on_success=_on_ok, on_error=_on_err)
 
     def _compliance_fix(self):
-        original = self._get_orig()
-        if not original or not self._compliance_raw:
+        try:
+            request = self._ai_service.prepare_action(
+                "compliance_fix",
+                original=self._get_orig(),
+                feedback=self._compliance_raw,
+            )
+        except AIOptimizeValidationError:
             return
         self._set_status("⏳ 正在修复违规内容…")
         self._set_busy(True)
         self._set_result("（合规修复中…）")
 
         ai_url, ai_key, ai_model = get_ai_config()
-        messages = [
-            {"role": "system", "content":
-                "你是专业的 AI 绘画 Prompt 合规修复专家。"
-                "用户会给你一段英文 Prompt 和合规检验报告，"
-                "请将 Prompt 中的违规词/敏感词替换为语义相近但合规的表述，"
-                "保持整体风格和意图不变。"
-                "只输出修复后的英文 Prompt，不要任何解释。"},
-            {"role": "user", "content":
-                f"原始 Prompt：\n{original}\n\n"
-                f"合规检验报告：\n{self._compliance_raw}\n\n"
-                f"请修复违规内容："},
-        ]
 
         def _on_ok(text):
             def _show():
                 self._set_result(text)
                 self._enable_apply()
-                self._push_history("合规修复", text)
+                self._push_history(request.history_label, text)
                 self._set_busy(False)
                 self._show_result_zh(text, "✓ 合规修复完成")
                 if self._diff_var.get():
@@ -1299,7 +1210,8 @@ class AIOptimizeDialog(tk.Toplevel):
                 self._set_busy(False)
             self.after(0, _show)
 
-        call_ai(ai_url, ai_key, ai_model, messages,
+        call_ai(ai_url, ai_key, ai_model, request.messages,
+                temperature=request.temperature,
                 on_success=_on_ok, on_error=_on_err)
 
 
