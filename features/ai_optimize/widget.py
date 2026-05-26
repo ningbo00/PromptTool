@@ -809,31 +809,12 @@ class AIOptimizeDialog(tk.Toplevel):
                 on_success=_on_ok, on_error=_on_err)
 
     def _build_kw_ui(self, keywords):
-        for w in self._kw_frame.winfo_children():
-            w.destroy()
-        self._kw_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
-
-        hdr = tk.Frame(self._kw_frame, bg=BG_BASE)
-        hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="🏷 关键词（点击复制）:", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
-        tk.Button(hdr, text="✕ 关闭", command=self._kw_frame.pack_forget,
-                  bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
-                  font=("微软雅黑", 8), padx=6, pady=0,
-                  cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
-
-        # 多行换行：每行最多 8 个
-        rows_needed = (len(keywords) + 7) // 8
-        for row_i in range(rows_needed):
-            row_frame = tk.Frame(self._kw_frame, bg=BG_BASE)
-            row_frame.pack(fill=tk.X, pady=(2, 0))
-            for kw in keywords[row_i * 8: (row_i + 1) * 8]:
-                tk.Button(
-                    row_frame, text=kw, bg=ACCENT_BLUE, fg=DARK_TEXT,
-                    relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=3,
-                    cursor="hand2", activebackground=ACCENT_BLUE,
-                    command=lambda k=kw: self._copy_kw(k),
-                ).pack(side=tk.LEFT, padx=(0, 4))
+        InsightsPanel.build_keywords(
+            self._kw_frame,
+            keywords,
+            on_copy=self._copy_kw,
+            on_close=self._kw_frame.pack_forget,
+        )
 
     def _copy_kw(self, kw: str):
         pyperclip.copy(kw)
@@ -998,53 +979,17 @@ class AIOptimizeDialog(tk.Toplevel):
                 on_success=_on_ok, on_error=_on_err)
 
     def _build_neg_rec_ui(self, text: str):
-        for w in self._neg_rec_frame.winfo_children():
-            w.destroy()
-        self._neg_rec_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
+        def _copy_all(words):
+            pyperclip.copy(", ".join(words))
+            self._set_status("✓ 已复制全部负面词", 1500)
 
-        hdr = tk.Frame(self._neg_rec_frame, bg=BG_BASE)
-        hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="🚫 推荐负面词（点击复制）:", bg=BG_BASE, fg=ACCENT_RED,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-
-        all_words = []
-        groups = []
-        for line in text.strip().split("\n"):
-            if "|" in line:
-                label, _, words_str = line.partition("|")
-                words = [w.strip() for w in words_str.split(",") if w.strip()]
-                if words:
-                    groups.append((label.strip(), words))
-                    all_words.extend(words)
-
-        if all_words:
-            def _copy_all():
-                pyperclip.copy(", ".join(all_words))
-                self._set_status("✓ 已复制全部负面词", 1500)
-            tk.Button(hdr, text="📋 全部复制", command=_copy_all,
-                      bg=ACCENT_RED, fg=DARK_TEXT, relief=tk.FLAT,
-                      font=("微软雅黑", 8, "bold"), padx=8, pady=1,
-                      cursor="hand2", activebackground=ACCENT_RED).pack(side=tk.RIGHT, padx=(0, 4))
-
-        tk.Button(hdr, text="✕ 关闭", command=self._neg_rec_frame.pack_forget,
-                  bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
-                  font=("微软雅黑", 8), padx=4, pady=0,
-                  cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
-
-        group_colors = [ACCENT_RED, ACCENT_ORANGE, ACCENT_YELLOW]
-        for gi, (group_label, words) in enumerate(groups):
-            grp_row = tk.Frame(self._neg_rec_frame, bg=BG_BASE)
-            grp_row.pack(fill=tk.X, pady=(4, 0))
-            tk.Label(grp_row, text=f"  {group_label}:", bg=BG_BASE,
-                     fg=group_colors[gi % len(group_colors)],
-                     font=("微软雅黑", 8, "bold")).pack(side=tk.LEFT)
-            for w in words:
-                tk.Button(
-                    grp_row, text=w, bg=BG_CARD, fg=ACCENT_RED,
-                    relief=tk.FLAT, font=("微软雅黑", 8), padx=6, pady=2,
-                    cursor="hand2", activebackground=BG_HOVER,
-                    command=lambda kw=w: self._copy_kw(kw),
-                ).pack(side=tk.LEFT, padx=(2, 2))
+        InsightsPanel.build_negative_recommendations(
+            self._neg_rec_frame,
+            self._ai_service.parse_negative_groups(text),
+            on_copy=self._copy_kw,
+            on_copy_all=_copy_all,
+            on_close=self._neg_rec_frame.pack_forget,
+        )
 
     # ─────────────────────────────────────────────────────────────
     #  功能 13：描述转 Prompt

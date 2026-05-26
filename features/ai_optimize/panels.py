@@ -4,7 +4,8 @@ from tkinter import ttk
 from shared.ui_kit import (
     BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
     FG_PRIMARY, FG_MUTED,
-    ACCENT_GREEN, ACCENT_YELLOW, DARK_TEXT, Tooltip,
+    ACCENT_BLUE, ACCENT_GREEN, ACCENT_YELLOW, ACCENT_RED, ACCENT_ORANGE,
+    DARK_TEXT, Tooltip,
 )
 
 
@@ -112,3 +113,64 @@ class InsightsPanel:
         self.frame.pack(side=tk.BOTTOM, fill=tk.X)
         tk.Label(self.frame, text="Insights / 结果辅助", bg=BG_BASE, fg=FG_MUTED,
                  font=("微软雅黑", 8, "bold")).pack(anchor="w", padx=12, pady=(4, 0))
+
+    @staticmethod
+    def build_keywords(frame, keywords, on_copy, on_close):
+        _clear_and_show(frame)
+        header = _header(frame, "🏷 关键词（点击复制）:", FG_MUTED, on_close)
+        header.pack(fill=tk.X)
+        rows_needed = (len(keywords) + 7) // 8
+        for row_index in range(rows_needed):
+            row = tk.Frame(frame, bg=BG_BASE)
+            row.pack(fill=tk.X, pady=(2, 0))
+            for keyword in keywords[row_index * 8: (row_index + 1) * 8]:
+                tk.Button(
+                    row, text=keyword, bg=ACCENT_BLUE, fg=DARK_TEXT,
+                    relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=3,
+                    cursor="hand2", activebackground=ACCENT_BLUE,
+                    command=lambda value=keyword: on_copy(value),
+                ).pack(side=tk.LEFT, padx=(0, 4))
+
+    @staticmethod
+    def build_negative_recommendations(frame, groups, on_copy, on_copy_all, on_close):
+        _clear_and_show(frame)
+        header = _header(frame, "🚫 推荐负面词（点击复制）:", ACCENT_RED, on_close)
+        header.pack(fill=tk.X)
+        all_words = [word for _, words in groups for word in words]
+        if all_words:
+            tk.Button(header, text="📋 全部复制", command=lambda: on_copy_all(all_words),
+                      bg=ACCENT_RED, fg=DARK_TEXT, relief=tk.FLAT,
+                      font=("微软雅黑", 8, "bold"), padx=8, pady=1,
+                      cursor="hand2", activebackground=ACCENT_RED).pack(side=tk.RIGHT, padx=(0, 4))
+
+        group_colors = [ACCENT_RED, ACCENT_ORANGE, ACCENT_YELLOW]
+        for group_index, (group_label, words) in enumerate(groups):
+            row = tk.Frame(frame, bg=BG_BASE)
+            row.pack(fill=tk.X, pady=(4, 0))
+            tk.Label(row, text=f"  {group_label}:", bg=BG_BASE,
+                     fg=group_colors[group_index % len(group_colors)],
+                     font=("微软雅黑", 8, "bold")).pack(side=tk.LEFT)
+            for word in words:
+                tk.Button(
+                    row, text=word, bg=BG_CARD, fg=ACCENT_RED,
+                    relief=tk.FLAT, font=("微软雅黑", 8), padx=6, pady=2,
+                    cursor="hand2", activebackground=BG_HOVER,
+                    command=lambda value=word: on_copy(value),
+                ).pack(side=tk.LEFT, padx=(2, 2))
+
+
+def _clear_and_show(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+    frame.pack(fill=tk.X, padx=12, pady=(2, 4))
+
+
+def _header(parent, title, color, on_close):
+    header = tk.Frame(parent, bg=BG_BASE)
+    tk.Label(header, text=title, bg=BG_BASE, fg=color,
+             font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
+    tk.Button(header, text="✕ 关闭", command=on_close,
+              bg=BG_HOVER, fg=FG_MUTED, relief=tk.FLAT,
+              font=("微软雅黑", 8), padx=4, pady=0,
+              cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
+    return header

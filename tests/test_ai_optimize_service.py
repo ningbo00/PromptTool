@@ -91,6 +91,20 @@ def test_parse_keywords_splits_comma_text():
     ]
 
 
+def test_parse_negative_groups():
+    service = AIOptimizeService()
+
+    groups = service.parse_negative_groups(
+        "通用质量问题|blurry, low quality\n"
+        "风格一致性|bad style"
+    )
+
+    assert groups == [
+        ("通用质量问题", ["blurry", "low quality"]),
+        ("风格一致性", ["bad style"]),
+    ]
+
+
 def test_prepare_improve_by_score_requires_feedback():
     service = AIOptimizeService()
 

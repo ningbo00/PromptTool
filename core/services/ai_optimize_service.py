@@ -112,6 +112,17 @@ class AIOptimizeService:
     def parse_keywords(self, text: str) -> list[str]:
         return [keyword.strip() for keyword in text.split(",") if keyword.strip()]
 
+    def parse_negative_groups(self, text: str) -> list[tuple[str, list[str]]]:
+        groups = []
+        for line in text.strip().split("\n"):
+            if "|" not in line:
+                continue
+            label, _, words_text = line.partition("|")
+            words = [word.strip() for word in words_text.split(",") if word.strip()]
+            if words:
+                groups.append((label.strip(), words))
+        return groups
+
     def _history_label(self, action: str, direction: str) -> str:
         if action == "optimize_current":
             return direction
