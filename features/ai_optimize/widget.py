@@ -611,111 +611,22 @@ class AIOptimizeDialog(tk.Toplevel):
 
     def _build_variant_ui(self):
         """在变体区渲染 RadioButton，self._variants 必须已填充。"""
-        # 先清除旧子控件但不碰 self._variants
-        for w in self._variant_frame.winfo_children():
-            w.destroy()
-        self._variant_frame.pack(fill=tk.X, padx=12, pady=(0, 4))
-
-        tk.Label(self._variant_frame, text="选择变体:", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
-        self._variant_var.set("0")
-        for i, v in enumerate(self._variants):
-            preview = v[:28].replace("\n", " ")
-            tk.Radiobutton(
-                self._variant_frame,
-                text=f"  变体{i+1}: {preview}{'…' if len(v) > 28 else ''}",
-                variable=self._variant_var, value=str(i),
-                bg=BG_BASE, fg=FG_PRIMARY, activebackground=BG_BASE,
-                selectcolor=BG_CARD, font=("微软雅黑", 8),
-                command=lambda idx=i: self._select_variant(idx),
-            ).pack(side=tk.LEFT, padx=(4, 0))
-
-        # 对比按钮
-        tk.Button(
-            self._variant_frame, text="📊 对比查看", command=self._open_variant_compare,
-            bg=ACCENT_PURPLE, fg=DARK_TEXT, relief=tk.FLAT,
-            font=("微软雅黑", 8, "bold"), padx=8, pady=2,
-            cursor="hand2", activebackground=ACCENT_PURPLE,
-        ).pack(side=tk.RIGHT, padx=(0, 4))
+        InsightsPanel.build_variants(
+            self._variant_frame,
+            self._variants,
+            self._variant_var,
+            self._select_variant,
+            self._open_variant_compare,
+        )
 
     def _open_variant_compare(self):
         """弹出变体对比窗口，三栏并列显示，含中文翻译。"""
-        if not self._variants:
-            return
-        win = tk.Toplevel(self)
-        win.title("📊 变体对比")
-        win.geometry("1100x680")
-        win.configure(bg=BG_BASE)
-        win.resizable(True, True)
-        win.minsize(700, 460)
-
-        colors = [ACCENT_GREEN, ACCENT_CYAN, ACCENT_ORANGE]
-
-        tk.Label(win, text="点击任意变体右上角的「✅ 使用此变体」将其填入优化结果区",
-                 bg=BG_BASE, fg=FG_MUTED, font=("微软雅黑", 9)).pack(anchor="w", padx=14, pady=(10, 6))
-
-        cols_frame = tk.Frame(win, bg=BG_BASE)
-        cols_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-
-        for i, variant_text in enumerate(self._variants):
-            col = tk.Frame(cols_frame, bg=BG_BASE)
-            col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if i == 0 else 6, 0))
-
-            hdr = tk.Frame(col, bg=BG_BASE)
-            hdr.pack(fill=tk.X, pady=(0, 4))
-            tk.Label(hdr, text=f"变体 {i+1}", bg=BG_BASE, fg=colors[i % len(colors)],
-                     font=("微软雅黑", 10, "bold")).pack(side=tk.LEFT)
-
-            def _use(idx=i, w=win):
-                self._select_variant(idx)
-                self._variant_var.set(str(idx))
-                w.destroy()
-
-            tk.Button(hdr, text="✅ 使用此变体", command=_use,
-                      bg=ACCENT_GREEN, fg=DARK_TEXT, relief=tk.FLAT,
-                      font=("微软雅黑", 8, "bold"), padx=8, pady=1,
-                      cursor="hand2", activebackground=ACCENT_GREEN).pack(side=tk.RIGHT)
-
-            def _copy(t=variant_text):
-                import pyperclip
-                pyperclip.copy(t)
-
-            tk.Button(hdr, text="📋", command=_copy,
-                      bg=BG_HOVER, fg=FG_PRIMARY, relief=tk.FLAT,
-                      font=("微软雅黑", 8), padx=6, pady=1,
-                      cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT, padx=(0, 4))
-
-            # 英文内容区
-            vpaned = ttk.PanedWindow(col, orient=tk.VERTICAL)
-            vpaned.pack(fill=tk.BOTH, expand=True)
-
-            en_f = tk.Frame(vpaned, bg=BG_BASE)
-            vpaned.add(en_f, weight=3)
-            tk.Label(en_f, text="🔤 英文", bg=BG_BASE, fg=colors[i % len(colors)],
-                     font=("微软雅黑", 8)).pack(anchor="w")
-            txt = tk.Text(en_f, bg=BG_SURFACE, fg=colors[i % len(colors)],
-                          relief=tk.FLAT, font=("微软雅黑", 9),
-                          wrap=tk.WORD, padx=10, pady=8)
-            txt.pack(fill=tk.BOTH, expand=True)
-            txt.insert("1.0", variant_text)
-            txt.config(state=tk.DISABLED)
-
-            # 中文翻译区
-            zh_f = tk.Frame(vpaned, bg=BG_BASE)
-            vpaned.add(zh_f, weight=2)
-            tk.Label(zh_f, text="🀄 中文翻译", bg=BG_BASE, fg=ACCENT_YELLOW,
-                     font=("微软雅黑", 8)).pack(anchor="w")
-            zh_txt = tk.Text(zh_f, bg=BG_BASE, fg=ACCENT_YELLOW,
-                             relief=tk.FLAT, font=("微软雅黑", 9),
-                             wrap=tk.WORD, padx=10, pady=6,
-                             state=tk.DISABLED)
-            zh_txt.pack(fill=tk.BOTH, expand=True)
-            zh_txt.config(state=tk.NORMAL)
-            zh_txt.insert("1.0", "（翻译中…）")
-            zh_txt.config(state=tk.DISABLED)
-
-            # 触发翻译
-            self._translate(variant_text, zh_txt)
+        InsightsPanel.open_variant_compare(
+            self,
+            self._variants,
+            self._select_variant,
+            self._translate,
+        )
 
     def _clear_variant_ui(self):
         """隐藏变体 UI 并清空列表。"""

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import pyperclip
 
 from shared.ui_kit import (
     BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
@@ -252,6 +253,95 @@ class InsightsPanel:
                     cursor="hand2", activebackground=BG_HOVER,
                     command=lambda value=word: on_copy(value),
                 ).pack(side=tk.LEFT, padx=(2, 2))
+
+    @staticmethod
+    def build_variants(frame, variants, variant_var, on_select, on_compare):
+        for widget in frame.winfo_children():
+            widget.destroy()
+        frame.pack(fill=tk.X, padx=12, pady=(0, 4))
+        tk.Label(frame, text="选择变体:", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 9, "bold")).pack(side=tk.LEFT)
+        variant_var.set("0")
+        for index, variant in enumerate(variants):
+            preview = variant[:28].replace("\n", " ")
+            tk.Radiobutton(
+                frame,
+                text=f"  变体{index + 1}: {preview}{'…' if len(variant) > 28 else ''}",
+                variable=variant_var, value=str(index),
+                bg=BG_BASE, fg=FG_PRIMARY, activebackground=BG_BASE,
+                selectcolor=BG_CARD, font=("微软雅黑", 8),
+                command=lambda idx=index: on_select(idx),
+            ).pack(side=tk.LEFT, padx=(4, 0))
+        tk.Button(
+            frame, text="📊 对比查看", command=on_compare,
+            bg="#cba6f7", fg=DARK_TEXT, relief=tk.FLAT,
+            font=("微软雅黑", 8, "bold"), padx=8, pady=2,
+            cursor="hand2", activebackground="#cba6f7",
+        ).pack(side=tk.RIGHT, padx=(0, 4))
+
+    @staticmethod
+    def open_variant_compare(parent, variants, on_select, on_translate):
+        if not variants:
+            return
+        window = tk.Toplevel(parent)
+        window.title("📊 变体对比")
+        window.geometry("1100x680")
+        window.configure(bg=BG_BASE)
+        window.resizable(True, True)
+        window.minsize(700, 460)
+        colors = [ACCENT_GREEN, "#89dceb", ACCENT_ORANGE]
+
+        tk.Label(window, text="点击任意变体右上角的「✅ 使用此变体」将其填入优化结果区",
+                 bg=BG_BASE, fg=FG_MUTED, font=("微软雅黑", 9)).pack(anchor="w", padx=14, pady=(10, 6))
+        columns = tk.Frame(window, bg=BG_BASE)
+        columns.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        for index, variant_text in enumerate(variants):
+            column = tk.Frame(columns, bg=BG_BASE)
+            column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if index == 0 else 6, 0))
+            header = tk.Frame(column, bg=BG_BASE)
+            header.pack(fill=tk.X, pady=(0, 4))
+            color = colors[index % len(colors)]
+            tk.Label(header, text=f"变体 {index + 1}", bg=BG_BASE, fg=color,
+                     font=("微软雅黑", 10, "bold")).pack(side=tk.LEFT)
+
+            def _use(idx=index):
+                on_select(idx)
+                window.destroy()
+
+            tk.Button(header, text="✅ 使用此变体", command=_use,
+                      bg=ACCENT_GREEN, fg=DARK_TEXT, relief=tk.FLAT,
+                      font=("微软雅黑", 8, "bold"), padx=8, pady=1,
+                      cursor="hand2", activebackground=ACCENT_GREEN).pack(side=tk.RIGHT)
+            tk.Button(header, text="📋", command=lambda text=variant_text: pyperclip.copy(text),
+                      bg=BG_HOVER, fg=FG_PRIMARY, relief=tk.FLAT,
+                      font=("微软雅黑", 8), padx=6, pady=1,
+                      cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT, padx=(0, 4))
+
+            split = ttk.PanedWindow(column, orient=tk.VERTICAL)
+            split.pack(fill=tk.BOTH, expand=True)
+            en_frame = tk.Frame(split, bg=BG_BASE)
+            split.add(en_frame, weight=3)
+            tk.Label(en_frame, text="🔤 英文", bg=BG_BASE, fg=color,
+                     font=("微软雅黑", 8)).pack(anchor="w")
+            text_widget = tk.Text(en_frame, bg=BG_SURFACE, fg=color,
+                                  relief=tk.FLAT, font=("微软雅黑", 9),
+                                  wrap=tk.WORD, padx=10, pady=8)
+            text_widget.pack(fill=tk.BOTH, expand=True)
+            text_widget.insert("1.0", variant_text)
+            text_widget.config(state=tk.DISABLED)
+
+            zh_frame = tk.Frame(split, bg=BG_BASE)
+            split.add(zh_frame, weight=2)
+            tk.Label(zh_frame, text="🀄 中文翻译", bg=BG_BASE, fg=ACCENT_YELLOW,
+                     font=("微软雅黑", 8)).pack(anchor="w")
+            zh_widget = tk.Text(zh_frame, bg=BG_BASE, fg=ACCENT_YELLOW,
+                                relief=tk.FLAT, font=("微软雅黑", 9),
+                                wrap=tk.WORD, padx=10, pady=6,
+                                state=tk.DISABLED)
+            zh_widget.pack(fill=tk.BOTH, expand=True)
+            ResultPanel.set_plain_text(zh_widget, "（翻译中…）")
+            on_translate(variant_text, zh_widget)
 
 
 def _clear_and_show(frame):
