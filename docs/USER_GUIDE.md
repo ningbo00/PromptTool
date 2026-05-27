@@ -72,7 +72,15 @@ G:\PromptTool\dist\PromptTool.exe
 
 ## AI 优化
 
-AI 优化依赖 `AI 设置` 中的 API Key 和模型配置。使用流程：
+AI 优化依赖 `AI 设置` 中的 API Key 和模型配置。当前内置服务商：
+
+- Kimi / Moonshot
+- 阿里百炼 / Qwen
+- 豆包 / 火山方舟
+- DeepSeek 官网平台，含 `deepseek-v4-pro`、`deepseek-v4-flash`
+- ChatGPT / OpenAI
+
+使用流程：
 
 1. 先在主界面选择一个 Prompt。
 2. 点击右侧 `AI 优化`。
