@@ -16,11 +16,11 @@ def test_ui_theme_uses_refined_compact_dark_tokens():
 def test_prompt_tool_source_uses_compact_refined_surface_copy():
     source = open("features/prompt_list/widget.py", encoding="utf-8").read()
 
-    assert "Midnight Graph UI" in source
     assert "Prompt Studio" in source
     assert "BG_ELEVATED" in source
-    assert "_workflow_entry" in source
-    assert "_mini_toolbar" in source
+    assert "_inspector_action_card" in source
+    assert "_compact_action_bar" in source
+    assert "本地提示词工作台" in source
 
 
 def test_prompt_tool_source_uses_reference_layout_language():
@@ -29,8 +29,51 @@ def test_prompt_tool_source_uses_reference_layout_language():
     assert "Outliner" in source
     assert "Canvas" in source
     assert "Inspector" in source
-    assert "Document Surface" in source
-    assert "Focus Rail" in source
+    assert "当前提示词" in source
+    assert "常用操作" in source
+    assert "提示词生成器" in source
+    assert "AI 优化" in source
+
+
+def test_prompt_tool_hides_internal_design_language_from_user():
+    source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
+
+    for internal_copy in (
+        "Midnight Graph UI",
+        "Document Surface",
+        "Focus Rail",
+        "Primary workflow",
+        "Open Builder",
+        "Open AI",
+    ):
+        assert internal_copy not in source
+    for internal_label in ('"Generate"', '"Optimize"', '"Configure"', '"Open"'):
+        assert internal_label not in source
+
+
+def test_prompt_tool_topbar_avoids_emoji_button_labels():
+    source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
+
+    for emoji in ("📌", "📍", "🗂", "⚙", "❓"):
+        assert emoji not in source
+
+
+def test_prompt_tool_uses_full_width_inspector_action_cards():
+    source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
+
+    assert "_inspector_action_card(" in source
+    assert "anchor=\"w\"" in source
+    assert "justify=tk.LEFT" in source
+    assert "fill=tk.X" in source
+    assert "action_text" not in source
+
+
+def test_prompt_tool_empty_state_guides_primary_actions():
+    source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
+
+    assert "选择左侧提示词" in source
+    assert "新建提示词" in source
+    assert "打开生成器" in source
 
 
 def test_prompt_tool_removes_decorative_node_graph():

@@ -15,7 +15,7 @@ from shared.ui_kit import (
     BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, ACCENT_YELLOW,
-    ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT,
+    ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE,
     FONT_FAMILY,
 )
 from features.camera_builder.widget import CameraBuilder
@@ -63,25 +63,23 @@ class PromptTool(tk.Tk):
         title_row.pack(anchor="w")
         tk.Label(title_row, text="Prompt Studio", bg=BG_ELEVATED, fg=FG_PRIMARY,
                  font=(FONT_FAMILY, 12, "bold")).pack(side=tk.LEFT)
-        tk.Label(title_row, text="  Midnight Graph UI", bg=BG_ELEVATED, fg=ACCENT_BLUE,
-                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="Local prompt workspace · generate, optimize, collect", bg=BG_ELEVATED, fg=FG_DIM,
+        tk.Label(brand, text="本地提示词工作台 · 生成、优化、收藏", bg=BG_ELEVATED, fg=FG_DIM,
                  font=(FONT_FAMILY, 8)).pack(anchor="w", pady=(1, 0))
 
-        self.topmost_btn = self._btn(toolbar, "📌 置顶",     self._toggle_topmost,      ACCENT_YELLOW)
+        self.topmost_btn = self._btn(toolbar, "置顶",     self._toggle_topmost,      ACCENT_YELLOW)
         self.topmost_btn.pack(side=tk.RIGHT, padx=(6, 0))
-        Tooltip(self.topmost_btn, "📌 置顶\n让窗口始终显示在所有其他窗口上方，方便对照使用。")
-        self.compact_btn = self._btn(toolbar, "🗂 精简模式", self._toggle_compact_mode, "#94e2d5")
+        Tooltip(self.topmost_btn, "置顶\n让窗口始终显示在所有其他窗口上方，方便对照使用。")
+        self.compact_btn = self._btn(toolbar, "精简", self._toggle_compact_mode, "#94e2d5")
         self.compact_btn.pack(side=tk.RIGHT)
-        Tooltip(self.compact_btn, "🗂 精简模式\n收起主窗口，弹出一个迷你浮动列表，可拖动放置在屏幕任意位置，便于随时复制 Prompt。")
-        settings_btn = self._btn(toolbar, "⚙ 设置", self._ai_settings, BG_HOVER)
+        Tooltip(self.compact_btn, "精简模式\n收起主窗口，弹出一个迷你浮动列表，可拖动放置在屏幕任意位置，便于随时复制 Prompt。")
+        settings_btn = self._btn(toolbar, "设置", self._ai_settings, BG_HOVER)
         settings_btn.config(fg=FG_PRIMARY)
         settings_btn.pack(side=tk.RIGHT, padx=(0, 6))
-        Tooltip(settings_btn, "⚙ 设置\n配置 AI 服务的 API Key、模型和接口地址。")
-        help_btn = self._btn(toolbar, "❓ 帮助", self._open_help, BG_HOVER)
+        Tooltip(settings_btn, "设置\n配置 AI 服务的 API Key、模型和接口地址。")
+        help_btn = self._btn(toolbar, "帮助", self._open_help, BG_HOVER)
         help_btn.config(fg=FG_PRIMARY)
         help_btn.pack(side=tk.RIGHT, padx=(0, 6))
-        Tooltip(help_btn, "❓ 帮助\n查看完整使用说明和功能介绍。")
+        Tooltip(help_btn, "帮助\n查看完整使用说明和功能介绍。")
 
         workbench = tk.Frame(shell, bg=BG_BASE)
         workbench.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
@@ -138,8 +136,8 @@ class PromptTool(tk.Tk):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         bind_mousewheel(self._canvas)
 
-        # Focus Rail: compact mini toolbar instead of stacked command boxes.
-        action_frame = self._mini_toolbar(self.left_pane)
+        # Compact action bar keeps secondary list actions available without heavy boxes.
+        action_frame = self._compact_action_bar(self.left_pane)
 
         primary_row = tk.Frame(action_frame, bg=BG_ELEVATED)
         primary_row.pack(fill=tk.X, pady=(0, 5))
@@ -181,7 +179,7 @@ class PromptTool(tk.Tk):
         header.pack(fill=tk.X, pady=(0, 6))
         tk.Label(header, text="Canvas", bg=BG_SURFACE, fg=FG_DIM,
                  font=(FONT_FAMILY, 8, "bold")).pack(side=tk.RIGHT)
-        self.edit_mode_label = tk.Label(header, text="Document Surface", bg=BG_SURFACE, fg=FG_PRIMARY,
+        self.edit_mode_label = tk.Label(header, text="当前提示词", bg=BG_SURFACE, fg=FG_PRIMARY,
                                         font=(FONT_FAMILY, 11, "bold"))
         self.edit_mode_label.pack(side=tk.LEFT)
 
@@ -201,9 +199,9 @@ class PromptTool(tk.Tk):
         meta_row = tk.Frame(self.right_pane, bg=BG_SURFACE)
         meta_row.pack(fill=tk.X, pady=(0, 8))
         for text, color in (
-            ("Local", ACCENT_GREEN),
-            ("Editable", ACCENT_BLUE),
-            ("No cloud sync", FG_DIM),
+            ("本地", ACCENT_GREEN),
+            ("可编辑", ACCENT_BLUE),
+            ("离线保存", FG_DIM),
         ):
             self._status_pill(meta_row, text, color).pack(side=tk.LEFT, padx=(0, 6))
 
@@ -223,7 +221,7 @@ class PromptTool(tk.Tk):
         b_copy = self._btn(right_bottom, "复制",  self._copy_current,  ACCENT_CYAN  )
         b_copy.pack(side=tk.LEFT, padx=(0, 4))
         self.action_buttons["copy_current"] = b_copy
-        Tooltip(b_copy, "📋 复制到剪切板\n将右侧编辑区中的 Prompt 内容复制到剪贴板，可直接粘贴到 AI 生图工具中使用。")
+        Tooltip(b_copy, "复制到剪切板\n将右侧编辑区中的 Prompt 内容复制到剪贴板，可直接粘贴到 AI 生图工具中使用。")
 
         self.status_label = tk.Label(right_bottom, text="", bg=BG_SURFACE,
                                      fg=ACCENT_GREEN, font=(FONT_FAMILY, 9))
@@ -232,12 +230,12 @@ class PromptTool(tk.Tk):
     def _build_tools_pane(self):
         tk.Label(self.tools_pane, text="Inspector", bg=BG_ELEVATED, fg=FG_PRIMARY,
                  font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(0, 4))
-        tk.Label(self.tools_pane, text="Primary workflow", bg=BG_ELEVATED, fg=ACCENT_BLUE,
+        tk.Label(self.tools_pane, text="常用操作", bg=BG_ELEVATED, fg=ACCENT_BLUE,
                  font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", pady=(0, 6))
 
         intro = tk.Label(
             self.tools_pane,
-            text="Keep the two core actions visible: Generate first, then Optimize selected prompt.",
+            text="主要入口固定在这里：先生成提示词，再对选中的内容做 AI 优化。",
             bg=BG_ELEVATED,
             fg=FG_MUTED,
             font=(FONT_FAMILY, 8),
@@ -246,36 +244,32 @@ class PromptTool(tk.Tk):
         )
         intro.pack(anchor="w", fill=tk.X, pady=(0, 10))
 
-        self._inspector_section("Focus Rail")
-        self._workflow_entry(
-            "Generate",
-            "4-step prompt generator",
-            "打开生成",
+        self._inspector_section("主要")
+        self._inspector_action_card(
+            "提示词生成器",
+            "场景、风格、镜头、输出四步生成",
             self._open_camera_builder,
             ACCENT_GREEN,
             key="builder",
         )
-        self._workflow_entry(
-            "Optimize",
-            "AI polish / translate / score",
-            "开始优化",
+        self._inspector_action_card(
+            "AI 优化",
+            "优化、翻译、扩写、评分和合规修复",
             self._ai_optimize,
             ACCENT_PURPLE,
             key="ai_optimize",
         )
 
-        self._inspector_section("Utilities")
-        self._workflow_entry(
-            "AI Settings",
-            "Providers / keys / model",
-            "Configure",
+        self._inspector_section("辅助")
+        self._inspector_action_card(
+            "AI 设置",
+            "服务商、API Key 和模型",
             self._ai_settings,
             ACCENT_BLUE,
         )
-        self._workflow_entry(
-            "Help",
-            "Usage guide and shortcuts",
-            "Open",
+        self._inspector_action_card(
+            "使用帮助",
+            "查看说明和常用操作",
             self._open_help,
             FG_MUTED,
         )
@@ -283,11 +277,11 @@ class PromptTool(tk.Tk):
     # ─────────────────────────────────────────────────────────────
     #  工具函数
     # ─────────────────────────────────────────────────────────────
-    def _mini_toolbar(self, parent):
+    def _compact_action_bar(self, parent):
         toolbar = tk.Frame(parent, bg=BG_ELEVATED)
         toolbar.pack(fill=tk.X, pady=(8, 0))
         tk.Frame(toolbar, bg=BORDER_SUBTLE, height=1).pack(fill=tk.X, pady=(0, 8))
-        label = tk.Label(toolbar, text="Focus Rail", bg=BG_ELEVATED, fg=FG_DIM,
+        label = tk.Label(toolbar, text="列表操作", bg=BG_ELEVATED, fg=FG_DIM,
                          font=(FONT_FAMILY, 7, "bold"))
         label.pack(anchor="w", pady=(0, 5))
         return toolbar
@@ -303,24 +297,30 @@ class PromptTool(tk.Tk):
         tk.Label(self.tools_pane, text=title, bg=BG_ELEVATED, fg=FG_DIM,
                  font=(FONT_FAMILY, 7, "bold")).pack(anchor="w", pady=(0, 6))
 
-    def _workflow_entry(self, title, desc, action_text, command, color, key=None):
-        card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=9,
-                        highlightbackground=BORDER_SUBTLE, highlightthickness=1)
-        card.pack(fill=tk.X, pady=(0, 7))
-        accent = tk.Frame(card, bg=color, width=3)
-        accent.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
-        body = tk.Frame(card, bg=BG_SURFACE)
-        body.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tk.Label(body, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
-                 font=(FONT_FAMILY, 10, "bold")).pack(anchor="w")
-        tk.Label(body, text=desc, bg=BG_SURFACE, fg=FG_MUTED,
-                 font=(FONT_FAMILY, 8), justify=tk.LEFT,
-                 wraplength=154).pack(anchor="w", fill=tk.X, pady=(2, 0))
-        btn = self._btn(card, action_text, command, color)
-        btn.pack(side=tk.RIGHT, padx=(8, 0))
+    def _inspector_action_card(self, title, desc, command, color, key=None):
+        text = f"{title}\n{desc}"
+        btn = tk.Button(
+            self.tools_pane,
+            text=text,
+            command=command,
+            anchor="w",
+            justify=tk.LEFT,
+            bg=BG_SURFACE,
+            fg=FG_PRIMARY,
+            relief=tk.FLAT,
+            font=(FONT_FAMILY, 9, "bold"),
+            padx=14,
+            pady=10,
+            cursor="hand2",
+            activebackground=BG_HOVER,
+            activeforeground=FG_PRIMARY,
+            highlightbackground=color,
+            highlightthickness=1,
+        )
+        btn.pack(fill=tk.X, pady=(0, 7))
         if key:
             self.action_buttons[key] = btn
-        return card
+        return btn
 
     def _btn(self, parent, text, cmd, color=ACCENT_BLUE):
         return tk.Button(parent, text=text, command=cmd,
@@ -373,10 +373,10 @@ class PromptTool(tk.Tk):
         if not hasattr(self, "text_area") or self.selected_index is not None:
             return
         message = (
-            "还没有 Prompt。\n\n点击左侧「+ 新建」创建第一条 Prompt，"
-            "或打开右侧「提示词生成器」。"
+            "还没有提示词。\n\n新建提示词：点击左下「+ 新建」。\n"
+            "打开生成器：使用右侧「提示词生成器」快速生成。"
             if not self.prompts else
-            "请从左侧 Prompt 库选择一条内容，或点击「+ 新建」。"
+            "选择左侧提示词查看内容。\n\n也可以新建提示词，或打开生成器创建新的内容。"
         )
         self.text_area.config(state=tk.NORMAL, bg=BG_SURFACE, fg=FG_DIM)
         self.text_area.delete("1.0", tk.END)
@@ -596,7 +596,7 @@ class PromptTool(tk.Tk):
             self._open_compact_overlay()
         else:
             self.deiconify()
-            self.compact_btn.config(text="🗂 精简模式")
+            self.compact_btn.config(text="精简")
 
     def _open_compact_overlay(self):
         ov = tk.Toplevel(self)
@@ -674,13 +674,13 @@ class PromptTool(tk.Tk):
         if hasattr(self, "_compact_win") and self._compact_win.winfo_exists():
             self._compact_win.destroy()
         self.deiconify()
-        self.compact_btn.config(text="🗂 精简模式")
+        self.compact_btn.config(text="精简")
 
     def _toggle_topmost(self):
         self.topmost_mode = not self.topmost_mode
         self.attributes("-topmost", self.topmost_mode)
         self.topmost_btn.config(
-            text="📍 取消置顶" if self.topmost_mode else "📌 置顶")
+            text="取消置顶" if self.topmost_mode else "置顶")
 
     # ─────────────────────────────────────────────────────────────
     #  摄影机构建器
