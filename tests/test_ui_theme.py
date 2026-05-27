@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from shared import ui_kit
 
 
@@ -17,3 +19,13 @@ def test_prompt_tool_source_uses_compact_refined_surface_copy():
     assert "Prompt Studio" in source
     assert "BG_ELEVATED" in source
     assert "核心入口" in source
+
+
+def test_prompt_tool_source_uses_reference_layout_language():
+    source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
+
+    assert "Outliner" in source
+    assert "Canvas" in source
+    assert "Inspector" in source
+    assert "ghost_node_canvas" in source
+    assert "_ghost_node" in source

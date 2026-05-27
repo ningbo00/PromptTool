@@ -62,7 +62,7 @@ class PromptTool(tk.Tk):
         brand.pack(side=tk.LEFT)
         tk.Label(brand, text="Prompt Studio", bg=BG_ELEVATED, fg=FG_PRIMARY,
                  font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
-        tk.Label(brand, text="AI Command Center", bg=BG_ELEVATED, fg=FG_DIM,
+        tk.Label(brand, text="AI Command Center · Local Workspace", bg=BG_ELEVATED, fg=FG_DIM,
                  font=(FONT_FAMILY, 8)).pack(anchor="w", pady=(1, 0))
 
         self.topmost_btn = self._btn(toolbar, "📌 置顶",     self._toggle_topmost,      ACCENT_YELLOW)
@@ -104,7 +104,7 @@ class PromptTool(tk.Tk):
     def _build_left_pane(self):
         header = tk.Frame(self.left_pane, bg=BG_ELEVATED)
         header.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(header, text="Library", bg=BG_ELEVATED, fg=FG_PRIMARY,
+        tk.Label(header, text="Outliner", bg=BG_ELEVATED, fg=FG_PRIMARY,
                  font=(FONT_FAMILY, 11, "bold")).pack(side=tk.LEFT)
         self.library_status_label = tk.Label(header, text="", bg=BG_ELEVATED,
                                              fg=FG_MUTED, font=(FONT_FAMILY, 8))
@@ -192,6 +192,8 @@ class PromptTool(tk.Tk):
     def _build_right_pane(self):
         header = tk.Frame(self.right_pane, bg=BG_ELEVATED)
         header.pack(fill=tk.X, pady=(0, 6))
+        tk.Label(header, text="Canvas", bg=BG_ELEVATED, fg=FG_DIM,
+                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.RIGHT)
         self.edit_mode_label = tk.Label(header, text="未选择 Prompt", bg=BG_ELEVATED, fg=FG_PRIMARY,
                                         font=(FONT_FAMILY, 11, "bold"))
         self.edit_mode_label.pack(side=tk.LEFT)
@@ -207,6 +209,13 @@ class PromptTool(tk.Tk):
                                     font=(FONT_FAMILY, 10), state=tk.DISABLED,
                                     disabledbackground=BG_SURFACE, disabledforeground=FG_DIM)
         self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=(6, 0))
+
+        self.ghost_node_canvas = tk.Canvas(
+            self.right_pane, height=150, bg=BG_BASE,
+            highlightthickness=1, highlightbackground=BORDER_SUBTLE,
+        )
+        self.ghost_node_canvas.pack(fill=tk.X, pady=(0, 8))
+        self._draw_ghost_mindmap()
 
         self.text_area = tk.Text(self.right_pane, bg=BG_SURFACE, fg=FG_MUTED,
                                  insertbackground=FG_PRIMARY, relief=tk.FLAT,
@@ -230,8 +239,10 @@ class PromptTool(tk.Tk):
         self.status_label.pack(side=tk.LEFT, padx=10)
 
     def _build_tools_pane(self):
-        tk.Label(self.tools_pane, text="核心入口", bg=BG_ELEVATED, fg=FG_PRIMARY,
+        tk.Label(self.tools_pane, text="Inspector", bg=BG_ELEVATED, fg=FG_PRIMARY,
                  font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(0, 4))
+        tk.Label(self.tools_pane, text="核心入口", bg=BG_ELEVATED, fg=ACCENT_BLUE,
+                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", pady=(0, 6))
 
         intro = tk.Label(
             self.tools_pane,
@@ -257,9 +268,10 @@ class PromptTool(tk.Tk):
                      font=(FONT_FAMILY, 8), justify=tk.LEFT,
                      wraplength=205).pack(anchor="w", fill=tk.X, pady=(4, 10))
             btn = tk.Button(card, text=action_text, command=command,
-                            bg=color, fg=DARK_TEXT, relief=tk.FLAT,
+                            bg=BG_CARD, fg=color, relief=tk.FLAT,
                             font=(FONT_FAMILY, 9, "bold"), padx=12, pady=5,
-                            activebackground=color, cursor="hand2")
+                            activebackground=BG_HOVER, cursor="hand2",
+                            highlightbackground=color, highlightthickness=1)
             btn.pack(fill=tk.X)
             if key:
                 self.action_buttons[key] = btn
@@ -318,9 +330,39 @@ class PromptTool(tk.Tk):
     # ─────────────────────────────────────────────────────────────
     def _btn(self, parent, text, cmd, color=ACCENT_BLUE):
         return tk.Button(parent, text=text, command=cmd,
-                         bg=color, fg=DARK_TEXT, relief=tk.FLAT,
+                         bg=BG_CARD, fg=color, relief=tk.FLAT,
                          font=(FONT_FAMILY, 9, "bold"), padx=10, pady=4,
-                         activebackground=color, cursor="hand2")
+                         activebackground=BG_HOVER, cursor="hand2",
+                         highlightbackground=color, highlightthickness=1)
+
+    def _ghost_node(self, canvas, x, y, text, accent=ACCENT_BLUE, w=118):
+        canvas.create_rectangle(
+            x, y, x + w, y + 34,
+            fill=BG_SURFACE, outline=BORDER_SUBTLE, width=1,
+        )
+        canvas.create_line(x, y + 17, x + 4, y + 17, fill=accent, width=3)
+        canvas.create_text(
+            x + 14, y + 17, text=text, anchor="w",
+            fill=FG_PRIMARY, font=(FONT_FAMILY, 8, "bold"),
+        )
+
+    def _draw_ghost_mindmap(self):
+        canvas = self.ghost_node_canvas
+        canvas.delete("all")
+        canvas.create_text(
+            16, 14, text="RELEASE TO CREATE NEW", anchor="w",
+            fill=FG_DIM, font=(FONT_FAMILY, 7, "bold"),
+        )
+        self._ghost_node(canvas, 24, 58, "Prompt", ACCENT_BLUE, 100)
+        self._ghost_node(canvas, 176, 30, "Generate", ACCENT_GREEN, 116)
+        self._ghost_node(canvas, 176, 88, "Optimize", ACCENT_PURPLE, 116)
+        self._ghost_node(canvas, 334, 58, "Publish", ACCENT_CYAN, 104)
+        canvas.create_line(124, 75, 176, 47, fill=BORDER_SUBTLE, width=2, smooth=True)
+        canvas.create_line(124, 75, 176, 105, fill=BORDER_SUBTLE, width=2, smooth=True)
+        canvas.create_line(292, 47, 334, 75, fill=BORDER_SUBTLE, width=2, smooth=True)
+        canvas.create_line(292, 105, 334, 75, fill=BORDER_SUBTLE, width=2, smooth=True)
+        canvas.create_oval(120, 71, 128, 79, fill=ACCENT_BLUE, outline="")
+        canvas.create_oval(330, 71, 338, 79, fill=ACCENT_CYAN, outline="")
 
     def _flash_status(self, msg):
         self.status_label.config(text=msg)
