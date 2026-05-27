@@ -7,10 +7,11 @@ import tkinter.simpledialog
 
 from shared.ui_kit import (
     apply_dark_notebook_style, Tooltip,
-    BG_BASE, BG_HOVER,
+    BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE,
-    ACCENT_RED, ACCENT_CYAN, DARK_TEXT,
+    ACCENT_RED, ACCENT_CYAN,
+    FONT_FAMILY,
 )
 from core.services.camera_prompt_service import append_negative_as_positive, resolve_preset_values
 from features.camera_builder.scene_step import create_scene_step, build_subject_tab, refresh_subject_chips
@@ -141,17 +142,23 @@ class CameraBuilder(tk.Toplevel):
         self._build_main_area()
 
     def _build_topbar(self):
-        top = tk.Frame(self, bg=BG_BASE)
+        top = tk.Frame(self, bg=BG_ELEVATED, padx=12, pady=8,
+                       highlightbackground=BORDER_SUBTLE, highlightthickness=1)
         top.pack(fill=tk.X, padx=16, pady=(10, 4))
 
-        tk.Label(top, text="✨ 提示词生成器", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 11, "bold")).pack(side=tk.LEFT)
+        brand = tk.Frame(top, bg=BG_ELEVATED)
+        brand.pack(side=tk.LEFT)
+        tk.Label(brand, text="Generation Console", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                 font=(FONT_FAMILY, 11, "bold")).pack(anchor="w")
+        tk.Label(brand, text="Scene · Style · Camera · Output", bg=BG_ELEVATED, fg=FG_DIM,
+                 font=(FONT_FAMILY, 8)).pack(anchor="w", pady=(1, 0))
 
         def _rb(text, cmd, color):
             return tk.Button(top, text=text, command=cmd,
-                             bg=color, fg=DARK_TEXT, relief=tk.FLAT,
-                             font=("微软雅黑", 9, "bold"), padx=10, pady=3,
-                             cursor="hand2", activebackground=color)
+                             bg=BG_CARD, fg=color, relief=tk.FLAT,
+                             font=(FONT_FAMILY, 9, "bold"), padx=10, pady=3,
+                             cursor="hand2", activebackground=BG_HOVER,
+                             highlightbackground=color, highlightthickness=1)
 
         b_close = _rb("✕ 关闭",   self.destroy,    ACCENT_RED   )
         b_close.pack(side=tk.RIGHT, padx=(4, 0))
@@ -166,11 +173,11 @@ class CameraBuilder(tk.Toplevel):
         b_gen.pack(side=tk.RIGHT, padx=(4, 0))
         Tooltip(b_gen, "🪄 生成\n根据当前所有选项重新生成提示词（通常会自动触发，手动点击可强制刷新）。")
 
-        tk.Frame(top, bg=BG_HOVER, width=1).pack(side=tk.RIGHT, fill=tk.Y, padx=8)
-        tk.Label(top, text="二次元模式", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.RIGHT)
+        tk.Frame(top, bg=BORDER_SUBTLE, width=1).pack(side=tk.RIGHT, fill=tk.Y, padx=8)
+        tk.Label(top, text="二次元模式", bg=BG_ELEVATED, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 9)).pack(side=tk.RIGHT)
         self._mode_btn = tk.Button(top, text="○ 关", bg=BG_HOVER, fg=FG_PRIMARY,
-                                   relief=tk.FLAT, font=("微软雅黑", 9, "bold"),
+                                   relief=tk.FLAT, font=(FONT_FAMILY, 9, "bold"),
                                    padx=10, pady=3, cursor="hand2",
                                    command=self._toggle_mode)
         self._mode_btn.pack(side=tk.RIGHT, padx=(0, 4))
@@ -186,7 +193,7 @@ class CameraBuilder(tk.Toplevel):
         paned.add(nb_host, weight=1)
         self._build_notebook(nb_host)
 
-        right = tk.Frame(paned, bg="#181825")
+        right = tk.Frame(paned, bg=BG_SURFACE)
         paned.add(right, weight=1)
         PreviewPanel.build(self, right)
 
@@ -251,8 +258,8 @@ class CameraBuilder(tk.Toplevel):
         self.is_anime.set(anime_mode)
         self._mode_btn.config(
             text="● 开" if anime_mode else "○ 关",
-            bg=ACCENT_PURPLE if anime_mode else BG_HOVER,
-            fg=DARK_TEXT if anime_mode else FG_PRIMARY,
+            bg=BG_CARD if anime_mode else BG_HOVER,
+            fg=ACCENT_PURPLE if anime_mode else FG_PRIMARY,
         )
         render_params(self)
 
@@ -307,8 +314,8 @@ class CameraBuilder(tk.Toplevel):
         on = self.is_anime.get()
         self._mode_btn.config(
             text="● 开" if on else "○ 关",
-            bg=ACCENT_PURPLE if on else BG_HOVER,
-            fg=DARK_TEXT if on else FG_PRIMARY,
+            bg=BG_CARD if on else BG_HOVER,
+            fg=ACCENT_PURPLE if on else FG_PRIMARY,
         )
         render_params(self)
         refresh_subject_chips(self)

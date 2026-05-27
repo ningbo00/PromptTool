@@ -5,8 +5,9 @@
 import tkinter as tk
 from tkinter import ttk
 
-# ── 颜色常量：NoteAI 风格的紧凑暗色主题 ─────────────────────────────
-THEME_NAME = "noteai_dark_compact"
+# ── 颜色常量：Midnight Graph UI 紧凑暗色主题 ───────────────────────
+THEME_NAME = "midnight_graph_ui"
+BUTTON_STYLE = "outline"
 FONT_FAMILY = "Microsoft YaHei UI"
 RADIUS_PROXY_PAD = 10
 
@@ -52,13 +53,22 @@ def bind_mousewheel(canvas: tk.Canvas) -> None:
 
 def make_btn(parent, text: str, command, color: str = ACCENT_BLUE,
              font_size: int = 9, padx: int = 10, pady: int = 4) -> tk.Button:
-    """标准深色主题按钮"""
+    """Midnight Graph UI outline button."""
     return tk.Button(
         parent, text=text, command=command,
-        bg=color, fg=DARK_TEXT, relief=tk.FLAT,
+        bg=BG_CARD, fg=color, relief=tk.FLAT,
         font=(FONT_FAMILY, font_size, "bold"),
         padx=padx, pady=pady,
-        activebackground=color, cursor="hand2",
+        activebackground=BG_HOVER, cursor="hand2",
+        highlightbackground=color, highlightthickness=1,
+    )
+
+
+def make_panel(parent, bg: str = BG_ELEVATED, padx: int = 10, pady: int = 10) -> tk.Frame:
+    """Create a low-contrast floating panel."""
+    return tk.Frame(
+        parent, bg=bg, padx=padx, pady=pady,
+        highlightbackground=BORDER_SUBTLE, highlightthickness=1,
     )
 
 

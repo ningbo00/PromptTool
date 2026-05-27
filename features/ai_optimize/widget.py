@@ -7,10 +7,10 @@ import tkinter.simpledialog
 import pyperclip
 
 from shared.ui_kit import (
-    BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
+    BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_YELLOW, ACCENT_RED,
-    ACCENT_PURPLE, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT, Tooltip,
+    ACCENT_PURPLE, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT, FONT_FAMILY, Tooltip,
 )
 from shared.config import get_ai_config
 from core.services.ai_optimize_service import (
@@ -139,7 +139,7 @@ class AIOptimizeDialog(tk.Toplevel):
         _abtn("💡 仅扩写",     self._expand_only,      "#a6e3a1", parent=advanced_row,
               tip="💡 仅扩写\nAI 不修改原有内容，只在末尾追加新的细节词（场景细节、光线质感、情绪氛围等）。\n输出格式：原文, [新增：追加词]")
 
-        advanced_row2 = tk.Frame(advanced_row, bg=BG_SURFACE)
+        advanced_row2 = tk.Frame(advanced_row, bg=BG_ELEVATED)
         advanced_row2.pack(fill=tk.X, pady=(4, 0))
         _abtn("🧙 引导创作",   self._guided_create,    ACCENT_PURPLE, parent=advanced_row2,
               tip="🧙 引导创作\n如果你不知道怎么写 Prompt，AI 会一步步提问你主体、场景、氛围、风格和特殊要求，最后自动生成完整 Prompt。")
@@ -170,7 +170,7 @@ class AIOptimizeDialog(tk.Toplevel):
 
         # ── 状态栏 ──────────────────────────────────────────────────
         self._status_lbl = tk.Label(bottom_area, text="", bg=BG_BASE, fg=ACCENT_YELLOW,
-                                    font=("微软雅黑", 9))
+                                    font=(FONT_FAMILY, 9))
         self._status_lbl.pack(anchor="w", padx=12, pady=(2, 2))
 
         # ── 关键词 chip 区（动态显示） ─────────────────────────────
@@ -192,10 +192,10 @@ class AIOptimizeDialog(tk.Toplevel):
 
         body_header = tk.Frame(self, bg=BG_BASE)
         body_header.pack(fill=tk.X, padx=12, pady=(0, 4))
-        tk.Label(body_header, text="输入", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(side=tk.LEFT)
-        tk.Label(body_header, text="结果", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(side=tk.RIGHT)
+        tk.Label(body_header, text="Left Input", bg=BG_BASE, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT)
+        tk.Label(body_header, text="Right Result", bg=BG_BASE, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.RIGHT)
 
         # ── 主分割 ──────────────────────────────────────────────────
         paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -215,17 +215,17 @@ class AIOptimizeDialog(tk.Toplevel):
         en_f = tk.Frame(vpaned, bg=BG_BASE)
         vpaned.add(en_f, weight=2)
         tk.Label(en_f, text="原始 Prompt（可编辑）", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(anchor="w")
+                 font=(FONT_FAMILY, 9)).pack(anchor="w")
         en_text = tk.Text(en_f, bg=BG_SURFACE, fg=FG_MUTED, relief=tk.FLAT,
-                          font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6)
+                          font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=6)
         en_text.pack(fill=tk.BOTH, expand=True)
 
         zh_f = tk.Frame(vpaned, bg=BG_BASE)
         vpaned.add(zh_f, weight=1)
         tk.Label(zh_f, text="🀄 原始中文翻译（AI 自动）", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9)).pack(anchor="w")
+                 font=(FONT_FAMILY, 9)).pack(anchor="w")
         zh_text = tk.Text(zh_f, bg=BG_BASE, fg=ACCENT_YELLOW, relief=tk.FLAT,
-                          font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=4,
+                          font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=4,
                           state=tk.DISABLED)
         zh_text.pack(fill=tk.BOTH, expand=True)
         return en_text, zh_text
@@ -247,20 +247,20 @@ class AIOptimizeDialog(tk.Toplevel):
         )
 
         en_text = tk.Text(en_f, bg=BG_SURFACE, fg=ACCENT_GREEN, relief=tk.FLAT,
-                          font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
+                          font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=6,
                           state=tk.DISABLED)
         en_text.pack(fill=tk.BOTH, expand=True)
         en_text.tag_config("added",   foreground="#a6e3a1")   # 亮绿（新增）
         en_text.tag_config("removed", foreground=ACCENT_RED,
-                           font=("微软雅黑", 9, "overstrike"))  # 红色删除线
+                           font=(FONT_FAMILY, 9, "overstrike"))  # 红色删除线
         en_text.tag_config("normal",  foreground=ACCENT_GREEN)
 
         zh_f = tk.Frame(vpaned, bg=BG_BASE)
         vpaned.add(zh_f, weight=1)
         tk.Label(zh_f, text="🀄 优化结果中文翻译（AI 自动）", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=("微软雅黑", 9)).pack(anchor="w")
+                 font=(FONT_FAMILY, 9)).pack(anchor="w")
         zh_text = tk.Text(zh_f, bg=BG_BASE, fg=ACCENT_YELLOW, relief=tk.FLAT,
-                          font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=4,
+                          font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=4,
                           state=tk.DISABLED)
         zh_text.pack(fill=tk.BOTH, expand=True)
         return en_text, zh_text
@@ -1009,10 +1009,10 @@ class GuidedCreateDialog(tk.Toplevel):
         top = tk.Frame(self, bg=BG_BASE)
         top.pack(fill=tk.X, padx=14, pady=(12, 6))
         tk.Label(top, text="🧙 引导式创作 — 逐步问答生成 Prompt",
-                 bg=BG_BASE, fg=FG_PRIMARY, font=("微软雅黑", 10, "bold")).pack(side=tk.LEFT)
+                 bg=BG_BASE, fg=FG_PRIMARY, font=(FONT_FAMILY, 10, "bold")).pack(side=tk.LEFT)
         tk.Button(top, text="✕ 关闭", command=self.destroy,
                   bg=ACCENT_RED, fg=DARK_TEXT, relief=tk.FLAT,
-                  font=("微软雅黑", 9, "bold"), padx=10, pady=2,
+                  font=(FONT_FAMILY, 9, "bold"), padx=10, pady=2,
                   cursor="hand2", activebackground=ACCENT_RED).pack(side=tk.RIGHT)
 
         # 进度条区
@@ -1027,9 +1027,9 @@ class GuidedCreateDialog(tk.Toplevel):
         hist_frame = tk.Frame(content, bg=BG_BASE)
         hist_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         tk.Label(hist_frame, text="问答历史", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8)).pack(anchor="w")
+                 font=(FONT_FAMILY, 8)).pack(anchor="w")
         self._hist_text = tk.Text(hist_frame, bg=BG_SURFACE, fg=FG_MUTED,
-                                  relief=tk.FLAT, font=("微软雅黑", 9),
+                                  relief=tk.FLAT, font=(FONT_FAMILY, 9),
                                   wrap=tk.WORD, padx=8, pady=6,
                                   state=tk.DISABLED, height=6)
         self._hist_text.pack(fill=tk.BOTH, expand=True)
@@ -1038,16 +1038,16 @@ class GuidedCreateDialog(tk.Toplevel):
         q_frame = tk.Frame(content, bg=BG_BASE)
         q_frame.pack(fill=tk.X, pady=(0, 6))
         self._q_label = tk.Label(q_frame, text="", bg=BG_BASE, fg=ACCENT_CYAN,
-                                 font=("微软雅黑", 9, "bold"), wraplength=600, justify=tk.LEFT)
+                                 font=(FONT_FAMILY, 9, "bold"), wraplength=600, justify=tk.LEFT)
         self._q_label.pack(anchor="w", pady=(0, 4))
         self._q_hint  = tk.Label(q_frame, text="", bg=BG_BASE, fg=FG_MUTED,
-                                 font=("微软雅黑", 8), wraplength=600, justify=tk.LEFT)
+                                 font=(FONT_FAMILY, 8), wraplength=600, justify=tk.LEFT)
         self._q_hint.pack(anchor="w", pady=(0, 6))
 
         self._ans_var = tk.StringVar()
         self._ans_entry = tk.Entry(q_frame, textvariable=self._ans_var, bg=BG_CARD, fg=FG_PRIMARY,
                                    insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                   font=("微软雅黑", 10))
+                                   font=(FONT_FAMILY, 10))
         self._ans_entry.pack(fill=tk.X, ipady=6)
         self._ans_entry.bind("<Return>", lambda _e: self._next())
 
@@ -1055,16 +1055,16 @@ class GuidedCreateDialog(tk.Toplevel):
         btn_row.pack(fill=tk.X, pady=(6, 12))
         self._skip_btn = tk.Button(btn_row, text="跳过", command=self._skip,
                                    bg=BG_HOVER, fg=FG_PRIMARY, relief=tk.FLAT,
-                                   font=("微软雅黑", 9), padx=10, pady=3,
+                                   font=(FONT_FAMILY, 9), padx=10, pady=3,
                                    cursor="hand2", activebackground=BG_HOVER)
         self._skip_btn.pack(side=tk.LEFT, padx=(0, 6))
         self._next_btn = tk.Button(btn_row, text="下一步 ▶", command=self._next,
                                    bg=ACCENT_BLUE, fg=DARK_TEXT, relief=tk.FLAT,
-                                   font=("微软雅黑", 9, "bold"), padx=14, pady=3,
+                                   font=(FONT_FAMILY, 9, "bold"), padx=14, pady=3,
                                    cursor="hand2", activebackground=ACCENT_BLUE)
         self._next_btn.pack(side=tk.LEFT)
         self._status_lbl = tk.Label(btn_row, text="", bg=BG_BASE, fg=ACCENT_YELLOW,
-                                    font=("微软雅黑", 9))
+                                    font=(FONT_FAMILY, 9))
         self._status_lbl.pack(side=tk.LEFT, padx=10)
 
     def _show_step(self):
@@ -1076,7 +1076,7 @@ class GuidedCreateDialog(tk.Toplevel):
             color = ACCENT_GREEN if i < self._step else (ACCENT_BLUE if i == self._step else BG_CARD)
             tk.Label(self._prog_frame, text=f"  {i+1}  ",
                      bg=color, fg=DARK_TEXT if color != BG_CARD else FG_MUTED,
-                     font=("微软雅黑", 8, "bold"), relief=tk.FLAT, padx=4).pack(side=tk.LEFT, padx=2)
+                     font=(FONT_FAMILY, 8, "bold"), relief=tk.FLAT, padx=4).pack(side=tk.LEFT, padx=2)
 
         if self._step < total:
             key, hint = self.GUIDE_QUESTIONS[self._step]
@@ -1176,18 +1176,18 @@ class DescToPromptDialog(tk.Toplevel):
         top = tk.Frame(self, bg=BG_BASE)
         top.pack(fill=tk.X, padx=14, pady=(12, 6))
         tk.Label(top, text="📖 描述转 Prompt — 将自然语言提炼为英文提示词",
-                 bg=BG_BASE, fg=FG_PRIMARY, font=("微软雅黑", 10, "bold")).pack(side=tk.LEFT)
+                 bg=BG_BASE, fg=FG_PRIMARY, font=(FONT_FAMILY, 10, "bold")).pack(side=tk.LEFT)
         tk.Button(top, text="✕ 关闭", command=self.destroy,
                   bg=ACCENT_RED, fg=DARK_TEXT, relief=tk.FLAT,
-                  font=("微软雅黑", 9, "bold"), padx=10, pady=2,
+                  font=(FONT_FAMILY, 9, "bold"), padx=10, pady=2,
                   cursor="hand2", activebackground=ACCENT_RED).pack(side=tk.RIGHT)
 
         tk.Label(self, text="输入描述（中文/英文均可，可以是小说片段、场景说明、简单描述）：",
-                 bg=BG_BASE, fg=FG_MUTED, font=("微软雅黑", 9)).pack(anchor="w", padx=14, pady=(0, 4))
+                 bg=BG_BASE, fg=FG_MUTED, font=(FONT_FAMILY, 9)).pack(anchor="w", padx=14, pady=(0, 4))
 
         self._input_text = tk.Text(self, bg=BG_CARD, fg=FG_PRIMARY,
                                    insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                   font=("微软雅黑", 9), wrap=tk.WORD, padx=8, pady=6,
+                                   font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=6,
                                    height=6)
         self._input_text.pack(fill=tk.X, padx=14, pady=(0, 8))
 
@@ -1196,18 +1196,18 @@ class DescToPromptDialog(tk.Toplevel):
         self._convert_btn = tk.Button(btn_row, text="🔄 转换",
                                       command=self._convert,
                                       bg=ACCENT_BLUE, fg=DARK_TEXT, relief=tk.FLAT,
-                                      font=("微软雅黑", 9, "bold"), padx=14, pady=3,
+                                      font=(FONT_FAMILY, 9, "bold"), padx=14, pady=3,
                                       cursor="hand2", activebackground=ACCENT_BLUE)
         self._convert_btn.pack(side=tk.LEFT)
         self._status_lbl = tk.Label(btn_row, text="", bg=BG_BASE, fg=ACCENT_YELLOW,
-                                    font=("微软雅黑", 9))
+                                    font=(FONT_FAMILY, 9))
         self._status_lbl.pack(side=tk.LEFT, padx=10)
 
         tk.Label(self, text="转换结果预览：",
-                 bg=BG_BASE, fg=FG_MUTED, font=("微软雅黑", 9)).pack(anchor="w", padx=14, pady=(0, 4))
+                 bg=BG_BASE, fg=FG_MUTED, font=(FONT_FAMILY, 9)).pack(anchor="w", padx=14, pady=(0, 4))
 
         self._result_text = tk.Text(self, bg=BG_SURFACE, fg=ACCENT_GREEN,
-                                    relief=tk.FLAT, font=("微软雅黑", 9),
+                                    relief=tk.FLAT, font=(FONT_FAMILY, 9),
                                     wrap=tk.WORD, padx=8, pady=6,
                                     height=5, state=tk.DISABLED)
         self._result_text.pack(fill=tk.BOTH, expand=True, padx=14, pady=(0, 8))
@@ -1217,7 +1217,7 @@ class DescToPromptDialog(tk.Toplevel):
         self._use_btn = tk.Button(act_row, text="✅ 填入结果区",
                                   command=self._use_result,
                                   bg=ACCENT_GREEN, fg=DARK_TEXT, relief=tk.FLAT,
-                                  font=("微软雅黑", 9, "bold"), padx=12, pady=3,
+                                  font=(FONT_FAMILY, 9, "bold"), padx=12, pady=3,
                                   cursor="hand2", activebackground=ACCENT_GREEN,
                                   state=tk.DISABLED)
         self._use_btn.pack(side=tk.LEFT, padx=(0, 6))
@@ -1225,7 +1225,7 @@ class DescToPromptDialog(tk.Toplevel):
         self._replace_btn = tk.Button(act_row, text="📝 生成到原始框",
                                       command=self._replace_orig,
                                       bg=ACCENT_BLUE, fg=DARK_TEXT, relief=tk.FLAT,
-                                      font=("微软雅黑", 9, "bold"), padx=12, pady=3,
+                                      font=(FONT_FAMILY, 9, "bold"), padx=12, pady=3,
                                       cursor="hand2", activebackground=ACCENT_BLUE,
                                       state=tk.DISABLED)
         self._replace_btn.pack(side=tk.LEFT, padx=(0, 6))
@@ -1233,7 +1233,7 @@ class DescToPromptDialog(tk.Toplevel):
         self._merge_btn = tk.Button(act_row, text="🔗 合入原始框",
                                     command=self._merge_orig,
                                     bg=ACCENT_CYAN, fg=DARK_TEXT, relief=tk.FLAT,
-                                    font=("微软雅黑", 9, "bold"), padx=12, pady=3,
+                                    font=(FONT_FAMILY, 9, "bold"), padx=12, pady=3,
                                     cursor="hand2", activebackground=ACCENT_CYAN,
                                     state=tk.DISABLED)
         self._merge_btn.pack(side=tk.LEFT)

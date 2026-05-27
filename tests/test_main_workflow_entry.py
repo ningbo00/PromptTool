@@ -19,6 +19,8 @@ def test_tools_panel_keeps_builder_and_ai_as_first_class_actions():
 def test_prompt_tool_source_uses_prominent_core_entry_copy():
     source = Path("features/prompt_list/widget.py").read_text(encoding="utf-8")
 
-    assert "AI Command Center" in source
+    assert "Midnight Graph UI" in source
     assert "Prompt Studio" in source
     assert "BG_ELEVATED" in source
+    assert "Generate" in source
+    assert "Optimize" in source

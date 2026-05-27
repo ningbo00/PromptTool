@@ -5,10 +5,10 @@ import tkinter as tk
 from tkinter import ttk
 
 from shared.ui_kit import (
-    BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
+    BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, ACCENT_YELLOW,
-    ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT,
+    ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE, FONT_FAMILY,
     apply_dark_notebook_style,
 )
 
@@ -267,14 +267,16 @@ class HelpDialog(tk.Toplevel):
         self._build_ui()
 
     def _build_ui(self):
-        top = tk.Frame(self, bg=BG_BASE)
+        top = tk.Frame(self, bg=BG_ELEVATED, padx=12, pady=8,
+                       highlightbackground=BORDER_SUBTLE, highlightthickness=1)
         top.pack(fill=tk.X, padx=16, pady=(12, 6))
-        tk.Label(top, text="❓ 使用帮助文档", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 12, "bold")).pack(side=tk.LEFT)
+        tk.Label(top, text="Help Library", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                 font=(FONT_FAMILY, 12, "bold")).pack(side=tk.LEFT)
         tk.Button(top, text="✕ 关闭", command=self.destroy,
-                  bg=ACCENT_RED, fg=DARK_TEXT, relief=tk.FLAT,
-                  font=("微软雅黑", 9, "bold"), padx=10, pady=3,
-                  cursor="hand2", activebackground=ACCENT_RED).pack(side=tk.RIGHT)
+                  bg=BG_CARD, fg=ACCENT_RED, relief=tk.FLAT,
+                  font=(FONT_FAMILY, 9, "bold"), padx=10, pady=3,
+                  cursor="hand2", activebackground=BG_HOVER,
+                  highlightbackground=ACCENT_RED, highlightthickness=1).pack(side=tk.RIGHT)
 
         apply_dark_notebook_style()
         nb = ttk.Notebook(self, style="Dark.TNotebook")
@@ -305,7 +307,7 @@ class HelpDialog(tk.Toplevel):
 
             text_widget = tk.Text(
                 inner, bg=BG_SURFACE, fg=FG_PRIMARY,
-                relief=tk.FLAT, font=("微软雅黑", 10),
+                relief=tk.FLAT, font=(FONT_FAMILY, 10),
                 wrap=tk.WORD, padx=20, pady=16,
                 state=tk.DISABLED,
                 spacing1=2, spacing3=2,
@@ -315,7 +317,7 @@ class HelpDialog(tk.Toplevel):
 
             # 配置文字样式
             text_widget.tag_config("heading", foreground=ACCENT_YELLOW,
-                                   font=("微软雅黑", 10, "bold"))
+                                   font=(FONT_FAMILY, 10, "bold"))
             text_widget.tag_config("normal", foreground=FG_PRIMARY)
 
             # 插入内容，对 ━━━ 行应用标题样式
