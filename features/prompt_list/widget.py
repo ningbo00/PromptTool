@@ -12,10 +12,11 @@ from infrastructure.json_prompt_store import JsonPromptStore
 from shared.storage import DATA_FILE
 from shared.ui_kit import (
     bind_mousewheel, Tooltip,
-    BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
+    BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,
     FG_PRIMARY, FG_MUTED, FG_DIM,
     ACCENT_BLUE, ACCENT_GREEN, ACCENT_PURPLE, ACCENT_YELLOW,
     ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE, DARK_TEXT,
+    FONT_FAMILY,
 )
 from features.camera_builder.widget import CameraBuilder
 from features.ai_optimize.widget   import AIOptimizeDialog
@@ -26,8 +27,9 @@ class PromptTool(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("Prompt 管理工具")
-        self.geometry("1100x720")
+        self.title("Prompt Studio")
+        self.geometry("1040x680")
+        self.minsize(960, 620)
         self.configure(bg=BG_BASE)
         self.resizable(True, True)
 
@@ -50,10 +52,18 @@ class PromptTool(tk.Tk):
     #  UI 骨架
     # ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        toolbar = tk.Frame(self, bg="#181825")
-        toolbar.pack(fill=tk.X, padx=10, pady=(10, 0))
-        tk.Label(toolbar, text="Prompt 管理工具", bg="#181825", fg=FG_PRIMARY,
-                 font=("微软雅黑", 11, "bold")).pack(side=tk.LEFT)
+        shell = tk.Frame(self, bg=BG_BASE)
+        shell.pack(fill=tk.BOTH, expand=True, padx=14, pady=12)
+
+        toolbar = tk.Frame(shell, bg=BG_ELEVATED, padx=12, pady=9,
+                           highlightbackground=BORDER_SUBTLE, highlightthickness=1)
+        toolbar.pack(fill=tk.X)
+        brand = tk.Frame(toolbar, bg=BG_ELEVATED)
+        brand.pack(side=tk.LEFT)
+        tk.Label(brand, text="Prompt Studio", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                 font=(FONT_FAMILY, 12, "bold")).pack(anchor="w")
+        tk.Label(brand, text="AI Command Center", bg=BG_ELEVATED, fg=FG_DIM,
+                 font=(FONT_FAMILY, 8)).pack(anchor="w", pady=(1, 0))
 
         self.topmost_btn = self._btn(toolbar, "📌 置顶",     self._toggle_topmost,      ACCENT_YELLOW)
         self.topmost_btn.pack(side=tk.RIGHT, padx=(6, 0))
@@ -70,18 +80,21 @@ class PromptTool(tk.Tk):
         help_btn.pack(side=tk.RIGHT, padx=(0, 6))
         Tooltip(help_btn, "❓ 帮助\n查看完整使用说明和功能介绍。")
 
-        workbench = tk.Frame(self, bg=BG_BASE)
-        workbench.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        workbench = tk.Frame(shell, bg=BG_BASE)
+        workbench.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
         workbench.grid_columnconfigure(0, weight=2, minsize=260)
         workbench.grid_columnconfigure(1, weight=5, minsize=420)
-        workbench.grid_columnconfigure(2, weight=2, minsize=240)
+        workbench.grid_columnconfigure(2, weight=2, minsize=230)
         workbench.grid_rowconfigure(0, weight=1)
 
-        self.left_pane  = tk.Frame(workbench, bg=BG_BASE)
-        self.right_pane = tk.Frame(workbench, bg="#181825")
-        self.tools_pane = tk.Frame(workbench, bg=BG_BASE)
-        self.left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        self.right_pane.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
+        self.left_pane  = tk.Frame(workbench, bg=BG_ELEVATED, padx=10, pady=10,
+                                   highlightbackground=BORDER_SUBTLE, highlightthickness=1)
+        self.right_pane = tk.Frame(workbench, bg=BG_ELEVATED, padx=10, pady=10,
+                                   highlightbackground=BORDER_SUBTLE, highlightthickness=1)
+        self.tools_pane = tk.Frame(workbench, bg=BG_ELEVATED, padx=10, pady=10,
+                                   highlightbackground=BORDER_SUBTLE, highlightthickness=1)
+        self.left_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self.right_pane.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
         self.tools_pane.grid(row=0, column=2, sticky="nsew")
 
         self._build_left_pane()
@@ -89,12 +102,12 @@ class PromptTool(tk.Tk):
         self._build_tools_pane()
 
     def _build_left_pane(self):
-        header = tk.Frame(self.left_pane, bg=BG_BASE)
+        header = tk.Frame(self.left_pane, bg=BG_ELEVATED)
         header.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(header, text="Prompt 库", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 11, "bold")).pack(side=tk.LEFT)
-        self.library_status_label = tk.Label(header, text="", bg=BG_BASE,
-                                             fg=FG_MUTED, font=("微软雅黑", 8))
+        tk.Label(header, text="Library", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                 font=(FONT_FAMILY, 11, "bold")).pack(side=tk.LEFT)
+        self.library_status_label = tk.Label(header, text="", bg=BG_ELEVATED,
+                                             fg=FG_MUTED, font=(FONT_FAMILY, 8))
         self.library_status_label.pack(side=tk.RIGHT)
 
         # 搜索框
@@ -102,20 +115,20 @@ class PromptTool(tk.Tk):
         self._search_entry = tk.Entry(self.left_pane, textvariable=self.search_var,
                                       bg=BG_CARD, fg=FG_DIM,
                                       insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                      font=("微软雅黑", 9))
-        self._search_entry.pack(fill=tk.X, ipady=5, pady=(0, 8))
+                                      font=(FONT_FAMILY, 9))
+        self._search_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
         self._search_entry.insert(0, "搜索...")
         self.search_var.trace_add("write", lambda *_: self._refresh_buttons())
         self._search_entry.bind("<FocusIn>",  self._search_focus_in)
         self._search_entry.bind("<FocusOut>", self._search_focus_out)
 
         # 列表区（带滚动）
-        list_frame = tk.Frame(self.left_pane, bg=BG_BASE)
+        list_frame = tk.Frame(self.left_pane, bg=BG_ELEVATED)
         list_frame.pack(fill=tk.BOTH, expand=True)
 
-        self._canvas = tk.Canvas(list_frame, bg=BG_BASE, highlightthickness=0)
+        self._canvas = tk.Canvas(list_frame, bg=BG_ELEVATED, highlightthickness=0)
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self._canvas.yview)
-        self.btn_frame = tk.Frame(self._canvas, bg=BG_BASE)
+        self.btn_frame = tk.Frame(self._canvas, bg=BG_ELEVATED)
         self.btn_frame.bind("<Configure>",
                             lambda _e: self._canvas.configure(
                                 scrollregion=self._canvas.bbox("all")))
@@ -126,14 +139,15 @@ class PromptTool(tk.Tk):
         bind_mousewheel(self._canvas)
 
         # 操作按钮组
-        action_frame = tk.Frame(self.left_pane, bg=BG_BASE)
+        action_frame = tk.Frame(self.left_pane, bg=BG_ELEVATED)
         action_frame.pack(fill=tk.X, pady=(8, 0))
 
         def _group(title):
-            box = tk.Frame(action_frame, bg=BG_SURFACE, padx=8, pady=8)
-            box.pack(fill=tk.X, pady=(0, 6))
+            box = tk.Frame(action_frame, bg=BG_SURFACE, padx=8, pady=8,
+                           highlightbackground=BORDER_SUBTLE, highlightthickness=1)
+            box.pack(fill=tk.X, pady=(0, 7))
             tk.Label(box, text=title, bg=BG_SURFACE, fg=FG_MUTED,
-                     font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
+                     font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", pady=(0, 6))
             row = tk.Frame(box, bg=BG_SURFACE)
             row.pack(fill=tk.X)
             return row
@@ -176,31 +190,31 @@ class PromptTool(tk.Tk):
         Tooltip(b_clrsel, "清空选择\n取消所有 Prompt 的勾选状态。")
 
     def _build_right_pane(self):
-        header = tk.Frame(self.right_pane, bg="#181825")
+        header = tk.Frame(self.right_pane, bg=BG_ELEVATED)
         header.pack(fill=tk.X, pady=(0, 6))
-        self.edit_mode_label = tk.Label(header, text="未选择 Prompt", bg="#181825", fg=FG_PRIMARY,
-                                        font=("微软雅黑", 11, "bold"))
+        self.edit_mode_label = tk.Label(header, text="未选择 Prompt", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                                        font=(FONT_FAMILY, 11, "bold"))
         self.edit_mode_label.pack(side=tk.LEFT)
 
-        title_frame = tk.Frame(self.right_pane, bg="#181825")
+        title_frame = tk.Frame(self.right_pane, bg=BG_ELEVATED)
         title_frame.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(title_frame, text="标题:", bg="#181825", fg=FG_MUTED,
-                 font=("微软雅黑", 9)).pack(side=tk.LEFT)
+        tk.Label(title_frame, text="标题:", bg=BG_ELEVATED, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 9)).pack(side=tk.LEFT)
         self.title_var = tk.StringVar()
         self.title_entry = tk.Entry(title_frame, textvariable=self.title_var,
                                     bg=BG_CARD, fg=FG_PRIMARY,
                                     insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                    font=("微软雅黑", 10), state=tk.DISABLED,
+                                    font=(FONT_FAMILY, 10), state=tk.DISABLED,
                                     disabledbackground=BG_SURFACE, disabledforeground=FG_DIM)
         self.title_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=(6, 0))
 
         self.text_area = tk.Text(self.right_pane, bg=BG_SURFACE, fg=FG_MUTED,
                                  insertbackground=FG_PRIMARY, relief=tk.FLAT,
-                                 font=("微软雅黑", 10), wrap=tk.WORD, padx=10, pady=10,
+                                 font=(FONT_FAMILY, 10), wrap=tk.WORD, padx=12, pady=12,
                                  state=tk.DISABLED)
         self.text_area.pack(fill=tk.BOTH, expand=True)
 
-        right_bottom = tk.Frame(self.right_pane, bg="#181825")
+        right_bottom = tk.Frame(self.right_pane, bg=BG_ELEVATED)
         right_bottom.pack(fill=tk.X, pady=(8, 0))
         b_save = self._btn(right_bottom, "💾 保存",          self._save_edit,     ACCENT_GREEN )
         b_save.pack(side=tk.LEFT, padx=(0, 4))
@@ -211,40 +225,41 @@ class PromptTool(tk.Tk):
         self.action_buttons["copy_current"] = b_copy
         Tooltip(b_copy, "📋 复制到剪切板\n将右侧编辑区中的 Prompt 内容复制到剪贴板，可直接粘贴到 AI 生图工具中使用。")
 
-        self.status_label = tk.Label(right_bottom, text="", bg="#181825",
-                                     fg=ACCENT_GREEN, font=("微软雅黑", 9))
+        self.status_label = tk.Label(right_bottom, text="", bg=BG_ELEVATED,
+                                     fg=ACCENT_GREEN, font=(FONT_FAMILY, 9))
         self.status_label.pack(side=tk.LEFT, padx=10)
 
     def _build_tools_pane(self):
-        tk.Label(self.tools_pane, text="核心功能入口", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 13, "bold")).pack(anchor="w", pady=(0, 6))
+        tk.Label(self.tools_pane, text="核心入口", bg=BG_ELEVATED, fg=FG_PRIMARY,
+                 font=(FONT_FAMILY, 12, "bold")).pack(anchor="w", pady=(0, 4))
 
         intro = tk.Label(
             self.tools_pane,
             text="最常用的两个动作放在这里：先生成 Prompt，再对当前 Prompt 做 AI 优化。",
-            bg=BG_BASE,
+            bg=BG_ELEVATED,
             fg=FG_MUTED,
-            font=("微软雅黑", 9),
+            font=(FONT_FAMILY, 8),
             justify=tk.LEFT,
             wraplength=220,
         )
         intro.pack(anchor="w", fill=tk.X, pady=(0, 10))
 
-        hero = tk.Frame(self.tools_pane, bg="#101522", padx=10, pady=10)
+        hero = tk.Frame(self.tools_pane, bg=BG_ELEVATED)
         hero.pack(fill=tk.X, pady=(0, 12))
 
         def _hero_entry(title, desc, action_text, command, color, key=None):
-            card = tk.Frame(hero, bg=color, padx=12, pady=12)
+            card = tk.Frame(hero, bg=BG_SURFACE, padx=12, pady=12,
+                            highlightbackground=color, highlightthickness=1)
             card.pack(fill=tk.X, pady=(0, 8))
-            tk.Label(card, text=title, bg=color, fg=DARK_TEXT,
-                     font=("微软雅黑", 12, "bold")).pack(anchor="w")
-            tk.Label(card, text=desc, bg=color, fg=DARK_TEXT,
-                     font=("微软雅黑", 8), justify=tk.LEFT,
+            tk.Label(card, text=title, bg=BG_SURFACE, fg=color,
+                     font=(FONT_FAMILY, 11, "bold")).pack(anchor="w")
+            tk.Label(card, text=desc, bg=BG_SURFACE, fg=FG_MUTED,
+                     font=(FONT_FAMILY, 8), justify=tk.LEFT,
                      wraplength=205).pack(anchor="w", fill=tk.X, pady=(4, 10))
             btn = tk.Button(card, text=action_text, command=command,
-                            bg=DARK_TEXT, fg=color, relief=tk.FLAT,
-                            font=("微软雅黑", 10, "bold"), padx=14, pady=6,
-                            activebackground=DARK_TEXT, cursor="hand2")
+                            bg=color, fg=DARK_TEXT, relief=tk.FLAT,
+                            font=(FONT_FAMILY, 9, "bold"), padx=12, pady=5,
+                            activebackground=color, cursor="hand2")
             btn.pack(fill=tk.X)
             if key:
                 self.action_buttons[key] = btn
@@ -267,16 +282,17 @@ class PromptTool(tk.Tk):
             key="ai_optimize",
         )
 
-        tk.Label(self.tools_pane, text="辅助入口", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(4, 6))
+        tk.Label(self.tools_pane, text="辅助", bg=BG_ELEVATED, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", pady=(4, 6))
 
         def _tool_card(title, desc, action_text, command, color):
-            card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
+            card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10,
+                            highlightbackground=BORDER_SUBTLE, highlightthickness=1)
             card.pack(fill=tk.X, pady=(0, 8))
             tk.Label(card, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
-                     font=("微软雅黑", 10, "bold")).pack(anchor="w")
+                     font=(FONT_FAMILY, 9, "bold")).pack(anchor="w")
             tk.Label(card, text=desc, bg=BG_SURFACE, fg=FG_MUTED,
-                     font=("微软雅黑", 8), justify=tk.LEFT,
+                     font=(FONT_FAMILY, 8), justify=tk.LEFT,
                      wraplength=210).pack(anchor="w", fill=tk.X, pady=(4, 8))
             btn = self._btn(card, action_text, command, color)
             btn.pack(anchor="e")
@@ -303,7 +319,7 @@ class PromptTool(tk.Tk):
     def _btn(self, parent, text, cmd, color=ACCENT_BLUE):
         return tk.Button(parent, text=text, command=cmd,
                          bg=color, fg=DARK_TEXT, relief=tk.FLAT,
-                         font=("微软雅黑", 9, "bold"), padx=10, pady=4,
+                         font=(FONT_FAMILY, 9, "bold"), padx=10, pady=4,
                          activebackground=color, cursor="hand2")
 
     def _flash_status(self, msg):

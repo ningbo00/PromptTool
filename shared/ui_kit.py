@@ -5,26 +5,33 @@
 import tkinter as tk
 from tkinter import ttk
 
-# ── 颜色常量 ──────────────────────────────────────────────────────
-BG_BASE    = "#1e1e2e"   # 最深背景（窗口底色）
-BG_SURFACE = "#252535"   # 面板/卡片背景
-BG_CARD    = "#313244"   # 输入框/按钮背景
-BG_HOVER   = "#45475a"   # 悬停/选中态
+# ── 颜色常量：NoteAI 风格的紧凑暗色主题 ─────────────────────────────
+THEME_NAME = "noteai_dark_compact"
+FONT_FAMILY = "Microsoft YaHei UI"
+RADIUS_PROXY_PAD = 10
 
-FG_PRIMARY = "#cdd6f4"   # 主文字
-FG_MUTED   = "#a6adc8"   # 次要文字
-FG_DIM     = "#6c7086"   # 占位符/禁用文字
+BG_BASE     = "#0b0f14"   # 窗口底色
+BG_ELEVATED = "#0f151c"   # 顶栏/主要容器
+BG_SURFACE  = "#111821"   # 面板/卡片背景
+BG_CARD     = "#17212b"   # 输入框/按钮背景
+BG_HOVER    = "#22303d"   # 悬停/选中态
+
+BORDER_SUBTLE = "#243241"
+
+FG_PRIMARY = "#e7edf4"   # 主文字
+FG_MUTED   = "#9aa7b3"   # 次要文字
+FG_DIM     = "#5f6b78"   # 占位符/禁用文字
 
 # 强调色
-ACCENT_BLUE   = "#89b4fa"
-ACCENT_GREEN  = "#a6e3a1"
-ACCENT_PURPLE = "#cba6f7"
-ACCENT_YELLOW = "#f9e2af"
-ACCENT_RED    = "#f38ba8"
-ACCENT_CYAN   = "#89dceb"
-ACCENT_ORANGE = "#fab387"
+ACCENT_BLUE   = "#7aa7ff"
+ACCENT_GREEN  = "#7dd3b0"
+ACCENT_PURPLE = "#b8a6ff"
+ACCENT_YELLOW = "#e8c36a"
+ACCENT_RED    = "#ff7a90"
+ACCENT_CYAN   = "#76d6e8"
+ACCENT_ORANGE = "#f0a46a"
 
-DARK_TEXT = "#1e1e2e"   # 深色文字（用于亮色按钮上）
+DARK_TEXT = "#081016"   # 深色文字（用于亮色按钮上）
 
 
 # ── 鼠标滚轮绑定 ──────────────────────────────────────────────────
@@ -49,7 +56,7 @@ def make_btn(parent, text: str, command, color: str = ACCENT_BLUE,
     return tk.Button(
         parent, text=text, command=command,
         bg=color, fg=DARK_TEXT, relief=tk.FLAT,
-        font=("微软雅黑", font_size, "bold"),
+        font=(FONT_FAMILY, font_size, "bold"),
         padx=padx, pady=pady,
         activebackground=color, cursor="hand2",
     )
@@ -116,9 +123,9 @@ class Tooltip:
         tw.attributes("-topmost", True)
         label = tk.Label(
             tw, text=self._text, justify=tk.LEFT,
-            bg="#2a2a3e", fg="#f9e2af",
+            bg=BG_SURFACE, fg=ACCENT_YELLOW,
             relief=tk.FLAT, bd=1,
-            font=("微软雅黑", 8),
+            font=(FONT_FAMILY, 8),
             padx=10, pady=6,
             wraplength=260,
         )
@@ -138,10 +145,10 @@ def apply_dark_notebook_style() -> None:
     style.configure(
         "Dark.TNotebook.Tab",
         background=BG_CARD, foreground=FG_PRIMARY,
-        padding=[12, 5], font=("微软雅黑", 9),
+        padding=[12, 5], font=(FONT_FAMILY, 9),
     )
     style.map(
         "Dark.TNotebook.Tab",
         background=[("selected", BG_HOVER)],
-        foreground=[("selected", ACCENT_PURPLE)],
+        foreground=[("selected", ACCENT_GREEN)],
     )
