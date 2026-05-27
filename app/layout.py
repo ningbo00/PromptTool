@@ -13,12 +13,14 @@ class LayoutSection:
 @dataclass(frozen=True)
 class MainLayoutSpec:
     toolbar_actions: list[str]
+    featured_actions: list[str]
     sections: list[LayoutSection]
 
     @classmethod
     def default(cls) -> "MainLayoutSpec":
         return cls(
             toolbar_actions=["topmost", "compact", "settings", "help"],
+            featured_actions=["builder", "ai_optimize"],
             sections=[
                 LayoutSection(
                     key="library",
@@ -46,6 +48,7 @@ class MainLayoutSpec:
                     primary_actions=["ai_optimize", "builder"],
                     secondary_actions=["ai_settings", "help"],
                     action_groups={
+                        "hero": ["builder", "ai_optimize"],
                         "workflows": ["ai_optimize", "builder"],
                         "support": ["ai_settings", "help"],
                     },

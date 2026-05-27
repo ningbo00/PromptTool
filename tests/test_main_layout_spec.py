@@ -52,6 +52,7 @@ def test_main_layout_groups_tool_actions():
     tools = spec.section("tools")
 
     assert tools.action_groups == {
+        "hero": ["builder", "ai_optimize"],
         "workflows": ["ai_optimize", "builder"],
         "support": ["ai_settings", "help"],
     }

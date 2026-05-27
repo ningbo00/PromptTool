@@ -216,12 +216,12 @@ class PromptTool(tk.Tk):
         self.status_label.pack(side=tk.LEFT, padx=10)
 
     def _build_tools_pane(self):
-        tk.Label(self.tools_pane, text="工作流工具", bg=BG_BASE, fg=FG_PRIMARY,
-                 font=("微软雅黑", 11, "bold")).pack(anchor="w", pady=(0, 6))
+        tk.Label(self.tools_pane, text="核心功能入口", bg=BG_BASE, fg=FG_PRIMARY,
+                 font=("微软雅黑", 13, "bold")).pack(anchor="w", pady=(0, 6))
 
         intro = tk.Label(
             self.tools_pane,
-            text="围绕当前 Prompt 做生成、优化和配置。",
+            text="最常用的两个动作放在这里：先生成 Prompt，再对当前 Prompt 做 AI 优化。",
             bg=BG_BASE,
             fg=FG_MUTED,
             font=("微软雅黑", 9),
@@ -230,10 +230,47 @@ class PromptTool(tk.Tk):
         )
         intro.pack(anchor="w", fill=tk.X, pady=(0, 10))
 
-        tk.Label(self.tools_pane, text="主要工作流", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(0, 6))
+        hero = tk.Frame(self.tools_pane, bg="#101522", padx=10, pady=10)
+        hero.pack(fill=tk.X, pady=(0, 12))
 
-        def _tool_card(title, desc, action_text, command, color, key=None):
+        def _hero_entry(title, desc, action_text, command, color, key=None):
+            card = tk.Frame(hero, bg=color, padx=12, pady=12)
+            card.pack(fill=tk.X, pady=(0, 8))
+            tk.Label(card, text=title, bg=color, fg=DARK_TEXT,
+                     font=("微软雅黑", 12, "bold")).pack(anchor="w")
+            tk.Label(card, text=desc, bg=color, fg=DARK_TEXT,
+                     font=("微软雅黑", 8), justify=tk.LEFT,
+                     wraplength=205).pack(anchor="w", fill=tk.X, pady=(4, 10))
+            btn = tk.Button(card, text=action_text, command=command,
+                            bg=DARK_TEXT, fg=color, relief=tk.FLAT,
+                            font=("微软雅黑", 10, "bold"), padx=14, pady=6,
+                            activebackground=DARK_TEXT, cursor="hand2")
+            btn.pack(fill=tk.X)
+            if key:
+                self.action_buttons[key] = btn
+            return card
+
+        _hero_entry(
+            "✨ 生成新 Prompt",
+            "打开提示词生成器：场景、风格、镜头、输出四步生成，完成后直接插入列表。",
+            "打开提示词生成器",
+            self._open_camera_builder,
+            ACCENT_GREEN,
+            key="builder",
+        )
+        _hero_entry(
+            "🤖 优化当前 Prompt",
+            "选择左侧 Prompt 后，可优化、翻译、扩写、评分、合规修复或生成变体。",
+            "AI 优化当前 Prompt",
+            self._ai_optimize,
+            ACCENT_PURPLE,
+            key="ai_optimize",
+        )
+
+        tk.Label(self.tools_pane, text="辅助入口", bg=BG_BASE, fg=FG_MUTED,
+                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(4, 6))
+
+        def _tool_card(title, desc, action_text, command, color):
             card = tk.Frame(self.tools_pane, bg=BG_SURFACE, padx=10, pady=10)
             card.pack(fill=tk.X, pady=(0, 8))
             tk.Label(card, text=title, bg=BG_SURFACE, fg=FG_PRIMARY,
@@ -243,28 +280,8 @@ class PromptTool(tk.Tk):
                      wraplength=210).pack(anchor="w", fill=tk.X, pady=(4, 8))
             btn = self._btn(card, action_text, command, color)
             btn.pack(anchor="e")
-            if key:
-                self.action_buttons[key] = btn
             return card
 
-        _tool_card(
-            "🤖 AI 优化",
-            "需要先选择当前 Prompt；可优化、翻译、扩写或生成多个变体。",
-            "优化当前",
-            self._ai_optimize,
-            ACCENT_PURPLE,
-            key="ai_optimize",
-        )
-        _tool_card(
-            "✨ 提示词生成器",
-            "通过主体、风格、镜头和输出参数生成 Prompt，并插入列表。",
-            "开始生成",
-            self._open_camera_builder,
-            ACCENT_GREEN,
-        )
-
-        tk.Label(self.tools_pane, text="辅助", bg=BG_BASE, fg=FG_MUTED,
-                 font=("微软雅黑", 8, "bold")).pack(anchor="w", pady=(4, 6))
         _tool_card(
             "⚙ AI 设置",
             "配置 API Key、模型和兼容接口地址。",
