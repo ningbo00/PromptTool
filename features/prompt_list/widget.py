@@ -117,7 +117,7 @@ class PromptTool(tk.Tk):
                                       insertbackground=FG_PRIMARY, relief=tk.FLAT,
                                       font=(FONT_FAMILY, 9))
         self._search_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
-        self._search_entry.insert(0, "搜索...")
+        self._search_entry.insert(0, "Search")
         self.search_var.trace_add("write", lambda *_: self._refresh_buttons())
         self._search_entry.bind("<FocusIn>",  self._search_focus_in)
         self._search_entry.bind("<FocusOut>", self._search_focus_out)
@@ -394,13 +394,13 @@ class PromptTool(tk.Tk):
     #  搜索栏
     # ─────────────────────────────────────────────────────────────
     def _search_focus_in(self, _e):
-        if self._search_entry.get() == "搜索...":
+        if self._search_entry.get() == "Search":
             self._search_entry.delete(0, tk.END)
             self._search_entry.config(fg=FG_PRIMARY)
 
     def _search_focus_out(self, _e):
         if not self._search_entry.get():
-            self._search_entry.insert(0, "搜索...")
+            self._search_entry.insert(0, "Search")
             self._search_entry.config(fg=FG_DIM)
 
     # ─────────────────────────────────────────────────────────────
@@ -416,15 +416,17 @@ class PromptTool(tk.Tk):
         for i in visible_indices:
             p = self.prompts[i]
 
-            row = tk.Frame(self.btn_frame,
-                           bg=BG_HOVER if i == self.selected_index else BG_CARD)
+            row_bg = BG_HOVER if i == self.selected_index else BG_ELEVATED
+            row = tk.Frame(self.btn_frame, bg=row_bg)
             row.pack(fill=tk.X, pady=2)
+            tk.Frame(row, bg=ACCENT_BLUE if i == self.selected_index else row_bg,
+                     width=3).pack(side=tk.LEFT, fill=tk.Y)
 
             checked = tk.BooleanVar(value=i in self.checked_indices)
             self.check_vars[i] = checked
             tk.Checkbutton(row, variable=checked,
                            bg=row.cget("bg"), activebackground=row.cget("bg"),
-                           selectcolor="#585b70", fg=FG_PRIMARY,
+                           selectcolor=BG_CARD, fg=FG_PRIMARY,
                            relief=tk.FLAT, highlightthickness=0, bd=0,
                            command=lambda idx=i: self._toggle_check(idx)
                            ).pack(side=tk.LEFT, padx=(6, 4))
