@@ -19,13 +19,13 @@ class PromptService:
     def search(self, query: str) -> list[int]:
         return self.library.search(query)
 
-    def add_prompt(self, title: str = "新 Prompt", content: str = "") -> int:
-        index = self.library.add_prompt(title, content)
+    def add_prompt(self, title: str = "新 Prompt", content: str = "", shortcut: str = "") -> int:
+        index = self.library.add_prompt(title, content, shortcut)
         self._persist()
         return index
 
-    def update_prompt(self, index: int, title: str, content: str) -> None:
-        self.library.update_prompt(index, title, content)
+    def update_prompt(self, index: int, title: str, content: str, shortcut: str | None = None) -> None:
+        self.library.update_prompt(index, title, content, shortcut)
         self._persist()
 
     def delete_prompt(self, index: int) -> Prompt:

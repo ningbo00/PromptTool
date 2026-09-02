@@ -1,10 +1,22 @@
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk, messagebox
+import pyperclip
 
 from shared.ui_kit import (
-    make_scroll_canvas, Tooltip, BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
+    make_scroll_canvas, Tooltip, brick_span, prepare_brick_grid, place_brick,
+    make_chip_button,
+    BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
     FG_PRIMARY, FG_MUTED, FG_DIM, ACCENT_BLUE, ACCENT_GREEN,
     ACCENT_PURPLE, ACCENT_YELLOW, DARK_TEXT,
+)
+from shared.storage import CUSTOM_PRESETS_FILE
+from core.services.custom_preset_service import (
+    CustomPresetService,
+    DOUBAO_CARTOON_PRESET_PROMPT,
+    DOUBAO_REALISTIC_PRESET_PROMPT,
+    MODE_CARTOON,
+    MODE_REALISTIC,
+    PresetValidationError,
 )
 from features.camera_builder.extractor_actions import (
     append_extractor_extra,
@@ -39,46 +51,123 @@ def create_style_step(notebook, builder):
 def build_preset_tab(builder):
     _, inner = make_scroll_canvas(builder.tab_preset, bg=BG_BASE)
 
+    action_row = tk.Frame(inner, bg=BG_BASE)
+    action_row.pack(fill=tk.X, padx=12, pady=(12, 8))
+    copy_real_btn = tk.Button(
+        action_row, text="复制写实模板",
+        bg=BG_CARD, fg=ACCENT_BLUE, relief=tk.FLAT,
+        font=("微软雅黑", 9, "bold"), padx=10, pady=4,
+        cursor="hand2", activebackground=BG_HOVER,
+        highlightbackground=ACCENT_BLUE, highlightthickness=1,
+        command=lambda _checked=False: copy_doubao_preset_prompt(builder, MODE_REALISTIC),
+    )
+    copy_real_btn.pack(side=tk.LEFT, padx=(0, 8))
+    Tooltip(copy_real_btn, "复制写实预设模板\n用于电影、摄影、真人 CG、写实美术风格。")
+    copy_cartoon_btn = tk.Button(
+        action_row, text="复制卡通模板",
+        bg=BG_CARD, fg=ACCENT_PURPLE, relief=tk.FLAT,
+        font=("微软雅黑", 9, "bold"), padx=10, pady=4,
+        cursor="hand2", activebackground=BG_HOVER,
+        highlightbackground=ACCENT_PURPLE, highlightthickness=1,
+        command=lambda _checked=False: copy_doubao_preset_prompt(builder, MODE_CARTOON),
+    )
+    copy_cartoon_btn.pack(side=tk.LEFT, padx=(0, 8))
+    Tooltip(copy_cartoon_btn, "复制卡通预设模板\n用于卡通、动画、游戏 CG、二次元、风格化 3D。")
+    import_btn = tk.Button(
+        action_row, text="从剪贴板导入预设",
+        bg=BG_CARD, fg=ACCENT_GREEN, relief=tk.FLAT,
+        font=("微软雅黑", 9, "bold"), padx=10, pady=4,
+        cursor="hand2", activebackground=BG_HOVER,
+        highlightbackground=ACCENT_GREEN, highlightthickness=1,
+        command=lambda _checked=False: import_preset_from_clipboard(builder),
+    )
+    import_btn.pack(side=tk.LEFT)
+    Tooltip(import_btn, "从剪贴板导入预设\n复制豆包返回的 JSON 后点击，导入为新的实拍预设。")
+
     tk.Label(inner, text="🎬 经典电影预设（实拍模式）", bg=BG_BASE, fg=ACCENT_BLUE,
-             font=("微软雅黑", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 6))
-    make_preset_grid(builder, inner, PRESETS_REAL, anime_mode=False)
+             font=("微软雅黑", 10, "bold")).pack(anchor="w", padx=12, pady=(4, 6))
+    builder._real_preset_container = tk.Frame(inner, bg=BG_BASE)
+    builder._real_preset_container.pack(fill=tk.X)
+    make_preset_grid(builder, builder._real_preset_container, PRESETS_REAL, anime_mode=False)
 
     ttk.Separator(inner, orient="horizontal").pack(fill=tk.X, padx=12, pady=12)
 
     tk.Label(inner, text="🌸 动画风格预设（二次元模式）", bg=BG_BASE, fg=ACCENT_PURPLE,
              font=("微软雅黑", 10, "bold")).pack(anchor="w", padx=12, pady=(0, 6))
-    make_preset_grid(builder, inner, PRESETS_ANIME, anime_mode=True)
+    builder._anime_preset_container = tk.Frame(inner, bg=BG_BASE)
+    builder._anime_preset_container.pack(fill=tk.X)
+    make_preset_grid(builder, builder._anime_preset_container, PRESETS_ANIME, anime_mode=True)
 
     ttk.Separator(inner, orient="horizontal").pack(fill=tk.X, padx=12, pady=12)
     tk.Label(inner, text="💡 点击预设会自动切换模式并填充参数，之后可在参数页微调。",
              bg=BG_BASE, fg=FG_DIM, font=("微软雅黑", 9)).pack(anchor="w", padx=12, pady=(0, 12))
 
+
+def copy_doubao_preset_prompt(builder, preset_mode=MODE_REALISTIC):
+    prompt = DOUBAO_CARTOON_PRESET_PROMPT if preset_mode == MODE_CARTOON else DOUBAO_REALISTIC_PRESET_PROMPT
+    pyperclip.copy(prompt)
+    label = "卡通" if preset_mode == MODE_CARTOON else "写实"
+    if hasattr(builder, "_flash_status"):
+        builder._flash_status(f"豆包{label}预设模板已复制 ✓")
+    else:
+        messagebox.showinfo("提示", f"豆包{label}预设模板已复制到剪贴板。", parent=builder)
+
+
+def import_preset_from_clipboard(builder):
+    try:
+        text = pyperclip.paste()
+    except Exception as exc:
+        messagebox.showinfo("导入失败", f"读取剪贴板失败：{exc}", parent=builder)
+        return
+    try:
+        preset = CustomPresetService(CUSTOM_PRESETS_FILE).import_from_text(text)
+    except PresetValidationError as exc:
+        messagebox.showinfo("导入失败", str(exc), parent=builder)
+        return
+    from features.camera_builder import presets as preset_module
+
+    preset_module.reload_custom_presets()
+    builder._refresh_preset_tab()
+    builder._apply_preset(preset.label, anime_mode=(preset.preset_mode == MODE_CARTOON))
+    if hasattr(builder, "_flash_status"):
+        builder._flash_status(f"已导入预设「{preset.label}」✓")
+    else:
+        messagebox.showinfo("导入成功", f"已导入预设「{preset.label}」。", parent=builder)
+
 def make_preset_grid(builder, parent, presets_dict, anime_mode):
     from features.camera_builder.presets import PRESETS_REAL, PRESETS_ANIME
     grid = tk.Frame(parent, bg=BG_BASE)
     grid.pack(fill=tk.X, padx=12, pady=(0, 4))
-    cols, row_idx, col_idx = 3, 0, 0
+    total_units = 24
+    prepare_brick_grid(grid, total_units=total_units, spacing=5)
+    row_idx, col_idx = 0, 0
     preset_data = PRESETS_ANIME if anime_mode else PRESETS_REAL
-    for name in presets_dict:
-        grid.grid_columnconfigure(col_idx, weight=1)
+    custom_names = [name for name, data in presets_dict.items() if data.get("_custom_preset_id")]
+    built_in_names = [name for name in presets_dict if name not in custom_names]
+    ordered_names = custom_names + built_in_names
+    for name in ordered_names:
         pdata = preset_data.get(name, {})
         tip_parts = [f"🎬 {name}"]
+        if pdata.get("_description"):
+            tip_parts.append(pdata["_description"])
         if "_extra" in pdata:
             tip_parts.append(f"风格词：{pdata['_extra'][:60]}…")
+        if pdata.get("_negative"):
+            tip_parts.append(f"负面词：{pdata['_negative'][:60]}…")
         tip_parts.append("点击应用此预设，自动填充所有参数。")
         b = tk.Button(
             grid, text=name, bg=BG_CARD, fg=FG_PRIMARY,
-            relief=tk.FLAT, font=("微软雅黑", 9), padx=10, pady=10,
+            relief=tk.FLAT, font=("微软雅黑", 8), padx=6, pady=2,
             cursor="hand2", activebackground=BG_HOVER,
             wraplength=200, justify=tk.LEFT,
-            command=lambda n=name, a=anime_mode: builder._apply_preset(n, a),
+            command=lambda _checked=False, n=name, a=anime_mode: builder._apply_preset(n, a),
         )
-        b.grid(row=row_idx, column=col_idx, padx=4, pady=3, sticky="ew")
+        make_chip_button(b, 36)
+        row_idx, col_idx = place_brick(
+            b, row_idx, col_idx, brick_span(name, min_units=4, max_units=8),
+            total_units=total_units
+        )
         Tooltip(b, "\n".join(tip_parts))
-        col_idx += 1
-        if col_idx >= cols:
-            col_idx = 0
-            row_idx += 1
 
 def build_style_tab(builder):
     _, inner = make_scroll_canvas(builder.tab_style, bg=BG_BASE)
@@ -148,27 +237,31 @@ def fill_toggle_grid(builder, grid_frame, toggles_dict, data, cols=4):
     for w in grid_frame.winfo_children():
         w.destroy()
     toggles_dict.clear()
-    for c in range(cols):
-        grid_frame.grid_columnconfigure(c, weight=1)
-    for idx, (kw, zh) in enumerate(data):
+    total_units = 24
+    prepare_brick_grid(grid_frame, total_units=total_units, spacing=5)
+    row_i, col_i = 0, 0
+    for kw, zh in data:
         bv = tk.BooleanVar(value=saved_state.get(kw, False))
         toggles_dict[kw] = bv
-        row_i, col_i = divmod(idx, cols)
         btn_ref = [None]
         display = f"{kw}\n{zh}"
 
-        def _toggle(b=bv, br=btn_ref):
+        def _toggle(_checked=False, b=bv, br=btn_ref):
             b.set(not b.get())
             br[0].config(bg=ACCENT_BLUE if b.get() else BG_CARD,
                          fg=DARK_TEXT if b.get() else FG_PRIMARY)
             builder._generate()
 
         btn = tk.Button(grid_frame, text=display, bg=BG_CARD, fg=FG_PRIMARY,
-                        relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=6,
+                        relief=tk.FLAT, font=("微软雅黑", 7), padx=6, pady=2,
                         cursor="hand2", activebackground=BG_HOVER,
                         wraplength=130, justify=tk.CENTER, command=_toggle)
         btn_ref[0] = btn
-        btn.grid(row=row_i, column=col_i, padx=3, pady=2, sticky="ew")
+        make_chip_button(btn, 38)
+        row_i, col_i = place_brick(
+            btn, row_i, col_i, brick_span(display, min_units=4, max_units=8),
+            total_units=total_units
+        )
         Tooltip(btn, f"{zh}\n{kw}\n点击选中/取消，选中后加入生成结果。")
 
 
@@ -224,18 +317,18 @@ def make_filter_group(builder, parent, category, words):
     btn_grid = tk.Frame(group, bg=BG_BASE)
     btn_grid.pack(fill=tk.X, pady=(4, 0))
 
-    row_idx, col_idx, cols = 0, 0, 3
+    row_idx, col_idx, total_units = 0, 0, 24
+    prepare_brick_grid(btn_grid, total_units=total_units, spacing=5)
     for display_label, english_keyword in words:
         bv = tk.BooleanVar(value=False)
         builder.filter_toggles[english_keyword] = bv
         builder.filter_labels[english_keyword] = display_label
         btn = make_toggle_btn(builder, btn_grid, display_label, english_keyword, bv)
-        btn_grid.grid_columnconfigure(col_idx, weight=1)
-        btn.grid(row=row_idx, column=col_idx, padx=3, pady=2, sticky="ew")
-        col_idx += 1
-        if col_idx >= cols:
-            col_idx = 0
-            row_idx += 1
+        row_idx, col_idx = place_brick(
+            btn, row_idx, col_idx,
+            brick_span(display_label, min_units=4, max_units=8),
+            total_units=total_units
+        )
 
     custom_row = tk.Frame(group, bg=BG_BASE)
     custom_row.pack(fill=tk.X, pady=(6, 0))
@@ -251,7 +344,7 @@ def make_filter_group(builder, parent, category, words):
     tk.Button(custom_row, text="+ 添加", bg=ACCENT_BLUE, fg=DARK_TEXT, relief=tk.FLAT,
               font=("微软雅黑", 8, "bold"), padx=10, pady=3, cursor="hand2",
               activebackground=ACCENT_BLUE,
-              command=lambda bg=btn_grid, ent=entry, ri=[row_idx], ci=[col_idx], co=cols:
+              command=lambda _checked=False, bg=btn_grid, ent=entry, ri=[row_idx], ci=[col_idx], co=total_units:
                   add_custom_filter_btn(builder, bg, ent, ri, ci, co)
               ).pack(side=tk.LEFT, padx=(6, 0))
 
@@ -265,14 +358,15 @@ def make_toggle_btn(builder, parent, display_label, english_keyword, bv):
         )
         builder._generate()
     b = tk.Button(parent, text=display_label, bg=BG_CARD, fg=FG_PRIMARY,
-                  relief=tk.FLAT, font=("微软雅黑", 8), padx=8, pady=6,
+                  relief=tk.FLAT, font=("微软雅黑", 7), padx=6, pady=2,
                   cursor="hand2", activebackground=BG_HOVER,
-                  wraplength=170, justify=tk.LEFT, command=toggle)
+                  wraplength=150, justify=tk.CENTER, command=toggle)
+    make_chip_button(b, 36)
     btn_ref[0] = b
     Tooltip(b, f"英文关键词：{english_keyword}\n点击选中（高亮），再点取消。选中后加入生成结果。")
     return b
 
-def add_custom_filter_btn(builder, grid_frame, entry, row_idx_ref, col_idx_ref, cols):
+def add_custom_filter_btn(builder, grid_frame, entry, row_idx_ref, col_idx_ref, total_units):
     HINT = "自定义词块：中文 / english keyword"
     raw = entry.get().strip()
     if not raw or raw == HINT:
@@ -291,12 +385,11 @@ def add_custom_filter_btn(builder, grid_frame, entry, row_idx_ref, col_idx_ref, 
     btn = make_toggle_btn(builder, grid_frame, display_label, english_keyword, bv)
     btn.config(bg=ACCENT_PURPLE, fg=DARK_TEXT)
     ri, ci = row_idx_ref[0], col_idx_ref[0]
-    grid_frame.grid_columnconfigure(ci, weight=1)
-    btn.grid(row=ri, column=ci, padx=3, pady=2, sticky="ew")
-    col_idx_ref[0] += 1
-    if col_idx_ref[0] >= cols:
-        col_idx_ref[0] = 0
-        row_idx_ref[0] += 1
+    ri, ci = place_brick(
+        btn, ri, ci, brick_span(display_label, min_units=4, max_units=8),
+        total_units=total_units
+    )
+    row_idx_ref[0], col_idx_ref[0] = ri, ci
     entry.delete(0, tk.END)
     entry.insert(0, HINT)
     entry.config(fg=FG_DIM)
@@ -340,7 +433,7 @@ def build_extractor_tab(builder):
                 btn_row, text=preset["name"], bg=BG_CARD, fg=FG_PRIMARY,
                 relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=6,
                 cursor="hand2", activebackground=BG_HOVER,
-                command=lambda idx=i: select_extractor_preset(builder, idx),
+                command=lambda _checked=False, idx=i: select_extractor_preset(builder, idx),
             )
             b.pack(side=tk.LEFT, padx=(0, 6), pady=2)
             builder._extractor_btn_refs[i] = b
@@ -373,7 +466,7 @@ def build_extractor_tab(builder):
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
         cursor="hand2", activebackground=ACCENT_BLUE,
         state=tk.DISABLED,
-        command=lambda: apply_extractor_style(builder),
+        command=lambda _checked=False: apply_extractor_style(builder),
     )
     builder._extractor_apply_btn.pack(side=tk.LEFT, padx=(0, 6))
     Tooltip(builder._extractor_apply_btn,
@@ -383,7 +476,7 @@ def build_extractor_tab(builder):
         act_row, text="➕ 追加到附加词", bg=ACCENT_GREEN, fg=DARK_TEXT,
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=12, pady=4,
         cursor="hand2", activebackground=ACCENT_GREEN,
-        command=lambda: append_extractor_extra(builder),
+        command=lambda _checked=False: append_extractor_extra(builder),
     ).pack(side=tk.LEFT, padx=(0, 6))
     Tooltip(act_row.winfo_children()[-1],
             "➕ 追加到附加词\n将预设的所有关键词追加到右侧预览的附加词输入框，直接加入最终 Prompt 而不激活词块。")
@@ -392,7 +485,7 @@ def build_extractor_tab(builder):
         act_row, text="🗑 清除已选风格", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 8), padx=10, pady=4,
         cursor="hand2", activebackground=BG_HOVER,
-        command=lambda: clear_extractor_style(builder),
+        command=lambda _checked=False: clear_extractor_style(builder),
     ).pack(side=tk.LEFT)
     Tooltip(act_row.winfo_children()[-1],
             "🗑 清除已选风格\n取消[风格情绪]页签中所有已激活的风格/美学/情绪词块，恢复全部为未选状态。")

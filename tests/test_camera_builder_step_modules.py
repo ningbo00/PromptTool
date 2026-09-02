@@ -28,6 +28,8 @@ def test_step_modules_expose_tab_body_builders():
 
     assert hasattr(scene_step, "build_subject_tab")
     assert hasattr(style_step, "build_preset_tab")
+    assert hasattr(style_step, "copy_doubao_preset_prompt")
+    assert hasattr(style_step, "import_preset_from_clipboard")
     assert hasattr(style_step, "build_style_tab")
     assert hasattr(style_step, "build_filter_tab")
     assert hasattr(style_step, "build_extractor_tab")

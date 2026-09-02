@@ -1,4 +1,4 @@
-import tkinter as tk
+from shared import qt_compat as tk
 
 from core.services.camera_extractor_service import (
     append_keywords_to_extra,

@@ -22,7 +22,7 @@ class JsonPromptStore:
         for item in data:
             if not isinstance(item, dict):
                 continue
-            prompt = Prompt(item.get("title", ""), item.get("content", ""))
+            prompt = Prompt(item.get("title", ""), item.get("content", ""), item.get("shortcut", ""))
             if prompt.title or prompt.content:
                 prompts.append(prompt)
         return PromptLibrary(prompts)

@@ -5,9 +5,10 @@ from shared import ui_kit
 
 def test_ui_theme_uses_refined_compact_dark_tokens():
     assert ui_kit.THEME_NAME == "midnight_graph_ui"
-    assert ui_kit.BG_BASE == "#0b0f14"
-    assert ui_kit.BG_SURFACE == "#111821"
-    assert ui_kit.BORDER_SUBTLE == "#243241"
+    assert ui_kit.BG_BASE == "#181818"
+    assert ui_kit.BG_SURFACE == "#242424"
+    assert ui_kit.BORDER_SUBTLE == "#3a3a3a"
+    assert ui_kit.ACCENT_BLUE == "#3794ff"
     assert ui_kit.FONT_FAMILY == "Microsoft YaHei UI"
     assert ui_kit.RADIUS_PROXY_PAD == 10
     assert ui_kit.BUTTON_STYLE == "outline"

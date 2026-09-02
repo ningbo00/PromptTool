@@ -1,35 +1,36 @@
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
 import pyperclip
+from PySide6.QtWidgets import QSizePolicy
 
 from shared.ui_kit import (
     BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER, BG_ELEVATED, BORDER_SUBTLE,
     FG_PRIMARY, FG_MUTED,
-    ACCENT_BLUE, ACCENT_GREEN, ACCENT_YELLOW, ACCENT_RED, ACCENT_ORANGE,
+    ACCENT_BLUE, ACCENT_GREEN, ACCENT_YELLOW, ACCENT_RED, ACCENT_CYAN, ACCENT_ORANGE,
     ACCENT_PURPLE, FONT_FAMILY, Tooltip,
 )
 
 
 class InstructionPanel:
     def __init__(self, parent, presets, length_var):
-        self.frame = tk.Frame(parent, bg=BG_ELEVATED, padx=12, pady=9,
+        self.frame = tk.Frame(parent, bg=BG_ELEVATED, padx=12, pady=8,
                               highlightbackground=BORDER_SUBTLE, highlightthickness=1)
-        self.frame.pack(fill=tk.X, padx=12, pady=(10, 6))
+        self.frame.pack(fill=tk.X, padx=12, pady=(10, 8))
         self.preset_var = tk.StringVar(value=presets[0])
         self.custom_var = tk.StringVar()
 
         tk.Label(self.frame, text="Command Strip", bg=BG_ELEVATED, fg=FG_PRIMARY,
-                 font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", pady=(0, 6))
+                 font=(FONT_FAMILY, 10, "bold")).pack(anchor="w", pady=(0, 5))
         self._build_options(presets, length_var)
         self._build_custom_input()
 
     def _build_options(self, presets, length_var):
         row = tk.Frame(self.frame, bg=BG_ELEVATED)
-        row.pack(fill=tk.X, pady=(0, 4))
+        row.pack(fill=tk.X, pady=(0, 6))
         tk.Label(row, text="优化方向:", bg=BG_ELEVATED, fg=FG_MUTED,
                  font=(FONT_FAMILY, 9)).pack(side=tk.LEFT)
         ttk.Combobox(row, textvariable=self.preset_var, values=presets,
-                     state="readonly", width=30, font=(FONT_FAMILY, 9)
+                     state="readonly", width=46, font=(FONT_FAMILY, 9)
                      ).pack(side=tk.LEFT, padx=(6, 12))
 
         tk.Label(row, text="输出长度:", bg=BG_ELEVATED, fg=FG_MUTED,
@@ -64,27 +65,68 @@ class InstructionPanel:
 
 
 class ActionBar:
+    GROUP_CONFIG = {
+        "主要流程": {"weight": 4, "columns": 4},
+        "高级工具": {"weight": 7, "columns": 4},
+        "结果操作": {"weight": 3, "columns": 3},
+    }
+    GROUP_HEIGHT = 92
+    BUTTON_HEIGHT = 22
+
     def __init__(self, parent):
         self.frame = tk.Frame(parent, bg=BG_BASE)
         self.frame.pack(fill=tk.X, padx=12, pady=(0, 6))
+        self._row = tk.Frame(self.frame, bg=BG_BASE)
+        self._row.pack(fill=tk.X)
+        self._group_count = 0
+        self.groups = {}
+        self.button_groups = {}
 
     def add_group(self, title):
-        group = tk.Frame(self.frame, bg=BG_ELEVATED, padx=8, pady=8,
+        config = self.GROUP_CONFIG.get(title, {"weight": 1, "columns": 3})
+        group = tk.Frame(self._row, bg=BG_ELEVATED, padx=7, pady=5,
                          highlightbackground=BORDER_SUBTLE, highlightthickness=1)
-        group.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+        index = self._group_count
+        group.grid(row=0, column=index, sticky="nsew", padx=(0, 8 if index < 2 else 0))
+        self._row.grid_columnconfigure(index, weight=config["weight"])
+        self._group_count += 1
+        group.setMinimumWidth(0)
+        group.setMinimumHeight(self.GROUP_HEIGHT)
+        group.setMaximumHeight(self.GROUP_HEIGHT)
+        group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         tk.Label(group, text=title, bg=BG_ELEVATED, fg=FG_MUTED,
-                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", pady=(0, 6))
-        row = tk.Frame(group, bg=BG_ELEVATED)
-        row.pack(fill=tk.X)
-        return row
+                 font=(FONT_FAMILY, 7, "bold")).pack(anchor="w", pady=(0, 3))
+        buttons = tk.Frame(group, bg=BG_ELEVATED)
+        buttons.pack(fill=tk.BOTH, expand=True)
+        buttons._button_count = 0
+        buttons._button_columns = config["columns"]
+        buttons._button_texts = []
+        self.groups[title] = group
+        self.button_groups[title] = buttons
+        return buttons
 
     def action_button(self, parent, text, command, color, state=tk.NORMAL, tip=""):
         button = tk.Button(parent, text=text, command=command,
                            bg=BG_CARD, fg=color, relief=tk.FLAT,
-                           font=(FONT_FAMILY, 9, "bold"), padx=8, pady=3,
+                           font=(FONT_FAMILY, 7, "bold"), padx=3, pady=0,
                            cursor="hand2", activebackground=BG_HOVER, state=state,
                            highlightbackground=color, highlightthickness=1)
-        button.pack(side=tk.LEFT, padx=(0, 4))
+        button._is_ai_action_button = True
+        button._apply_style()
+        index = getattr(parent, "_button_count", 0)
+        columns = getattr(parent, "_button_columns", 1)
+        row, col = divmod(index, columns)
+        layout = parent._ensure_grid_layout()
+        layout.setHorizontalSpacing(4)
+        layout.setVerticalSpacing(3)
+        for column in range(columns):
+            parent.grid_columnconfigure(column, weight=1)
+        button.setMinimumWidth(0)
+        button.setFixedHeight(self.BUTTON_HEIGHT)
+        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        button.grid(row=row, column=col, sticky="ew", padx=0, pady=0)
+        parent._button_count = index + 1
+        parent._button_texts.append(text)
         if tip:
             Tooltip(button, tip)
         return button
@@ -142,9 +184,9 @@ class ResultPanel:
 class InsightsPanel:
     def __init__(self, parent):
         self.frame = tk.Frame(parent, bg=BG_BASE)
-        self.frame.pack(side=tk.BOTTOM, fill=tk.X)
-        tk.Label(self.frame, text="Insights / 结果辅助", bg=BG_BASE, fg=FG_MUTED,
-                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", padx=12, pady=(4, 0))
+        self.frame.pack(fill=tk.X, padx=12, pady=(4, 8))
+        self.frame.setMinimumHeight(230)
+        self.frame.setMaximumHeight(320)
 
     @staticmethod
     def build_keywords(frame, keywords, on_copy, on_close):
@@ -161,7 +203,7 @@ class InsightsPanel:
                     relief=tk.FLAT, font=(FONT_FAMILY, 8), padx=8, pady=3,
                     cursor="hand2", activebackground=BG_HOVER,
                     highlightbackground=ACCENT_BLUE, highlightthickness=1,
-                    command=lambda value=keyword: on_copy(value),
+                    command=lambda _checked=False, value=keyword: on_copy(value),
                 ).pack(side=tk.LEFT, padx=(0, 4))
 
     @staticmethod
@@ -185,18 +227,19 @@ class InsightsPanel:
                   cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT)
         score_text = tk.Text(frame, bg=BG_SURFACE, fg=ACCENT_YELLOW,
                              relief=tk.FLAT, font=(FONT_FAMILY, 9),
-                             wrap=tk.WORD, padx=8, pady=6, height=12,
+                             wrap=tk.WORD, padx=8, pady=6, height=8,
                              state=tk.DISABLED)
-        score_text.pack(fill=tk.X, padx=6, pady=(2, 6))
+        score_text.setMinimumHeight(118)
+        score_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 6))
         return score_text, improve_button
 
     @staticmethod
     def build_compliance(frame, on_fix, on_close):
         _clear_and_show(frame)
-        header = _header(frame, "🛡 合规检验结果", "#94e2d5", on_close)
+        header = _header(frame, "🛡 合规检验结果", FG_MUTED, on_close)
         header.pack(fill=tk.X)
         compliance_text = tk.Text(
-            frame, bg=BG_SURFACE, fg="#94e2d5",
+            frame, bg=BG_SURFACE, fg=FG_MUTED,
             relief=tk.FLAT, font=(FONT_FAMILY, 9),
             wrap=tk.WORD, padx=8, pady=6, height=6,
             state=tk.DISABLED,
@@ -205,7 +248,7 @@ class InsightsPanel:
         compliance_text.tag_config("violation", foreground=ACCENT_RED, font=(FONT_FAMILY, 9, "bold"))
         compliance_text.tag_config("warning", foreground=ACCENT_YELLOW)
         compliance_text.tag_config("ok", foreground=ACCENT_GREEN)
-        compliance_text.tag_config("normal", foreground="#94e2d5")
+        compliance_text.tag_config("normal", foreground=FG_MUTED)
         fix_row = tk.Frame(frame, bg=BG_BASE)
         fix_row.pack(fill=tk.X, padx=6, pady=(0, 6))
         fix_button = tk.Button(
@@ -242,7 +285,7 @@ class InsightsPanel:
         header.pack(fill=tk.X)
         all_words = [word for _, words in groups for word in words]
         if all_words:
-            tk.Button(header, text="📋 全部复制", command=lambda: on_copy_all(all_words),
+            tk.Button(header, text="📋 全部复制", command=lambda _checked=False: on_copy_all(all_words),
                       bg=BG_CARD, fg=ACCENT_RED, relief=tk.FLAT,
                       font=(FONT_FAMILY, 8, "bold"), padx=8, pady=1,
                       cursor="hand2", activebackground=BG_HOVER,
@@ -260,7 +303,7 @@ class InsightsPanel:
                     row, text=word, bg=BG_CARD, fg=ACCENT_RED,
                     relief=tk.FLAT, font=(FONT_FAMILY, 8), padx=6, pady=2,
                     cursor="hand2", activebackground=BG_HOVER,
-                    command=lambda value=word: on_copy(value),
+                    command=lambda _checked=False, value=word: on_copy(value),
                 ).pack(side=tk.LEFT, padx=(2, 2))
 
     @staticmethod
@@ -279,7 +322,7 @@ class InsightsPanel:
                 variable=variant_var, value=str(index),
                 bg=BG_BASE, fg=FG_PRIMARY, activebackground=BG_BASE,
                 selectcolor=BG_CARD, font=(FONT_FAMILY, 8),
-                command=lambda idx=index: on_select(idx),
+                command=lambda _checked=False, idx=index: on_select(idx),
             ).pack(side=tk.LEFT, padx=(4, 0))
         tk.Button(
             frame, text="📊 对比查看", command=on_compare,
@@ -299,7 +342,7 @@ class InsightsPanel:
         window.configure(bg=BG_BASE)
         window.resizable(True, True)
         window.minsize(700, 460)
-        colors = [ACCENT_GREEN, "#89dceb", ACCENT_ORANGE]
+        colors = [ACCENT_GREEN, ACCENT_BLUE, ACCENT_ORANGE]
 
         tk.Label(window, text="点击任意变体右上角的「✅ 使用此变体」将其填入优化结果区",
                  bg=BG_BASE, fg=FG_MUTED, font=(FONT_FAMILY, 9)).pack(anchor="w", padx=14, pady=(10, 6))
@@ -324,7 +367,7 @@ class InsightsPanel:
                       font=(FONT_FAMILY, 8, "bold"), padx=8, pady=1,
                       cursor="hand2", activebackground=BG_HOVER,
                       highlightbackground=ACCENT_GREEN, highlightthickness=1).pack(side=tk.RIGHT)
-            tk.Button(header, text="📋", command=lambda text=variant_text: pyperclip.copy(text),
+            tk.Button(header, text="📋", command=lambda _checked=False, text=variant_text: pyperclip.copy(text),
                       bg=BG_HOVER, fg=FG_PRIMARY, relief=tk.FLAT,
                       font=(FONT_FAMILY, 8), padx=6, pady=1,
                       cursor="hand2", activebackground=BG_HOVER).pack(side=tk.RIGHT, padx=(0, 4))
@@ -358,7 +401,7 @@ class InsightsPanel:
 def _clear_and_show(frame):
     for widget in frame.winfo_children():
         widget.destroy()
-    frame.pack(fill=tk.X, padx=12, pady=(2, 4))
+    frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(2, 4))
 
 
 def _header(parent, title, color, on_close):

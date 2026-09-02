@@ -35,6 +35,7 @@ AI_PROVIDERS = {
         api_key_attr="KIMI_API_KEY",
         model_attr="KIMI_MODEL",
         models=(
+            "moonshot-v1-8k-vision-preview",
             "kimi-k2.5",
             "kimi-k2-0905-preview",
             "kimi-k2-thinking",
@@ -51,9 +52,15 @@ AI_PROVIDERS = {
         api_key_attr="BAILIAN_API_KEY",
         model_attr="BAILIAN_MODEL",
         models=(
+            "qwen-vl-max",
+            "qwen-vl-plus",
+            "qwen-vl-plus-latest",
+            "qwen2.5-vl-72b-instruct",
+            "qwen2.5-vl-32b-instruct",
             "qwen-max",
             "qwen-max-latest",
             "qwen-plus",
+            "qwen-plus-latest",
             "qwen-turbo",
             "qwen-long",
             "qwen2.5-72b-instruct",
@@ -69,6 +76,8 @@ AI_PROVIDERS = {
         api_key_attr="DOUBAO_API_KEY",
         model_attr="DOUBAO_MODEL",
         models=(
+            "doubao-1.5-vision-pro",
+            "doubao-1.5-vision-lite",
             "doubao-seed-1-6",
             "doubao-seed-1-6-flash",
             "doubao-seed-1-6-thinking",
@@ -131,6 +140,33 @@ OPENAI_API_URL = AI_PROVIDERS["openai"].url
 OPENAI_MODEL = "gpt-5.1"
 
 AI_PROVIDER = "bailian"
+SCREENSHOT_SHORTCUT = "Ctrl+Shift+S"
+SCREENSHOT_PROVIDER = "bailian"
+SCREENSHOT_MODEL = "qwen-vl-max"
+SCREENSHOT_ANALYSIS_MODE = "full_reverse"
+SCREENSHOT_ANALYSIS_CUSTOM = ""
+SCREENSHOT_PROMPT_DETAIL = "full"
+
+VISION_MODEL_MARKERS = (
+    "vision",
+    "vl",
+    "gpt-4o",
+    "gpt-4.1",
+    "gpt-5",
+    "gemini",
+)
+
+DEFAULT_SCREENSHOT_MODELS = {
+    "openai": "gpt-4o",
+    "bailian": "qwen-vl-max",
+    "kimi": "moonshot-v1-8k-vision-preview",
+    "doubao": "doubao-1.5-vision-pro",
+}
+
+SCREENSHOT_MODEL_ALLOWLIST = {
+    # User-requested ordinary Qwen entry for screenshot reverse prompt mode.
+    "bailian": ("qwen-plus-latest",),
+}
 
 
 def get_ai_config():
@@ -143,9 +179,41 @@ def get_ai_config():
     )
 
 
+def is_vision_model_name(model: str) -> bool:
+    """Best-effort check for models that can accept image input."""
+    name = (model or "").lower()
+    return any(marker in name for marker in VISION_MODEL_MARKERS)
+
+
+def is_screenshot_model_name(provider_key: str, model: str) -> bool:
+    return is_vision_model_name(model) or model in SCREENSHOT_MODEL_ALLOWLIST.get(provider_key, ())
+
+
+def get_vision_models(provider_key: str) -> tuple[str, ...]:
+    provider = AI_PROVIDERS.get(provider_key)
+    if provider is None:
+        return ()
+    return tuple(model for model in provider.models if is_screenshot_model_name(provider_key, model))
+
+
+def get_vision_provider_keys() -> tuple[str, ...]:
+    return tuple(key for key in AI_PROVIDERS if get_vision_models(key))
+
+
+def get_screenshot_ai_config():
+    """返回截图反推专用的 (url, key, model)，与文字分析模型解耦。"""
+    provider = AI_PROVIDERS.get(SCREENSHOT_PROVIDER, AI_PROVIDERS["bailian"])
+    return (
+        provider.url,
+        globals().get(provider.api_key_attr, ""),
+        SCREENSHOT_MODEL,
+    )
+
+
 def load_ai_config():
     """从 ai_config.json 加载配置，覆盖模块全局变量。"""
-    global AI_PROVIDER
+    global AI_PROVIDER, SCREENSHOT_SHORTCUT, SCREENSHOT_PROVIDER, SCREENSHOT_MODEL
+    global SCREENSHOT_ANALYSIS_MODE, SCREENSHOT_ANALYSIS_CUSTOM, SCREENSHOT_PROMPT_DETAIL
     if not os.path.exists(AI_CONFIG_FILE):
         return
     try:
@@ -155,13 +223,27 @@ def load_ai_config():
             globals()[provider.api_key_attr] = saved.get(_json_key(provider, "api_key"), globals()[provider.api_key_attr])
             globals()[provider.model_attr] = saved.get(_json_key(provider, "model"), globals()[provider.model_attr])
         AI_PROVIDER = saved.get("ai_provider", AI_PROVIDER)
+        SCREENSHOT_SHORTCUT = saved.get("screenshot_shortcut", SCREENSHOT_SHORTCUT) or SCREENSHOT_SHORTCUT
+        SCREENSHOT_PROVIDER = saved.get("screenshot_provider", SCREENSHOT_PROVIDER) or SCREENSHOT_PROVIDER
+        SCREENSHOT_MODEL = saved.get("screenshot_model", SCREENSHOT_MODEL) or SCREENSHOT_MODEL
+        SCREENSHOT_ANALYSIS_MODE = saved.get("screenshot_analysis_mode", SCREENSHOT_ANALYSIS_MODE) or SCREENSHOT_ANALYSIS_MODE
+        SCREENSHOT_ANALYSIS_CUSTOM = saved.get("screenshot_analysis_custom", SCREENSHOT_ANALYSIS_CUSTOM) or ""
+        SCREENSHOT_PROMPT_DETAIL = saved.get("screenshot_prompt_detail", SCREENSHOT_PROMPT_DETAIL) or SCREENSHOT_PROMPT_DETAIL
     except Exception:
         pass
 
 
 def save_ai_config():
     """将当前配置持久化到 ai_config.json。"""
-    saved = {"ai_provider": AI_PROVIDER}
+    saved = {
+        "ai_provider": AI_PROVIDER,
+        "screenshot_shortcut": SCREENSHOT_SHORTCUT,
+        "screenshot_provider": SCREENSHOT_PROVIDER,
+        "screenshot_model": SCREENSHOT_MODEL,
+        "screenshot_analysis_mode": SCREENSHOT_ANALYSIS_MODE,
+        "screenshot_analysis_custom": SCREENSHOT_ANALYSIS_CUSTOM,
+        "screenshot_prompt_detail": SCREENSHOT_PROMPT_DETAIL,
+    }
     for provider in AI_PROVIDERS.values():
         saved[_json_key(provider, "api_key")] = globals().get(provider.api_key_attr, "")
         saved[_json_key(provider, "model")] = globals().get(provider.model_attr, "")

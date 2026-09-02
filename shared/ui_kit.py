@@ -2,37 +2,156 @@
 设计系统：颜色常量 + 通用控件工厂函数
 所有 UI 组件都从这里引入颜色和工厂，保证风格统一
 """
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
+from PySide6.QtWidgets import QApplication, QSizePolicy, QToolTip
 
-# ── 颜色常量：Midnight Graph UI 紧凑暗色主题 ───────────────────────
+# ── 颜色常量：VS Code inspired restrained dark theme ───────────────
 THEME_NAME = "midnight_graph_ui"
 BUTTON_STYLE = "outline"
 FONT_FAMILY = "Microsoft YaHei UI"
 RADIUS_PROXY_PAD = 10
 
-BG_BASE     = "#0b0f14"   # 窗口底色
-BG_ELEVATED = "#0f151c"   # 顶栏/主要容器
-BG_SURFACE  = "#111821"   # 面板/卡片背景
-BG_CARD     = "#17212b"   # 输入框/按钮背景
-BG_HOVER    = "#22303d"   # 悬停/选中态
+BG_BASE     = "#181818"   # 窗口底色
+BG_ELEVATED = "#1f1f1f"   # 顶栏/主要容器
+BG_SURFACE  = "#242424"   # 面板/卡片背景
+BG_CARD     = "#2d2d2d"   # 输入框/按钮背景
+BG_HOVER    = "#333333"   # 悬停/选中态
 
-BORDER_SUBTLE = "#243241"
+BORDER_SUBTLE = "#3a3a3a"
 
-FG_PRIMARY = "#e7edf4"   # 主文字
-FG_MUTED   = "#9aa7b3"   # 次要文字
-FG_DIM     = "#5f6b78"   # 占位符/禁用文字
+FG_PRIMARY = "#e6e6e6"   # 主文字
+FG_MUTED   = "#a0a0a0"   # 次要文字
+FG_DIM     = "#6f6f6f"   # 占位符/禁用文字
 
-# 强调色
-ACCENT_BLUE   = "#7aa7ff"
-ACCENT_GREEN  = "#7dd3b0"
-ACCENT_PURPLE = "#b8a6ff"
-ACCENT_YELLOW = "#e8c36a"
-ACCENT_RED    = "#ff7a90"
-ACCENT_CYAN   = "#76d6e8"
-ACCENT_ORANGE = "#f0a46a"
+# 只保留蓝色作为主强调色，其余语义色全部降为灰色。
+ACCENT_BLUE   = "#3794ff"
+ACCENT_GREEN  = FG_MUTED
+ACCENT_PURPLE = FG_MUTED
+ACCENT_YELLOW = FG_MUTED
+ACCENT_RED    = FG_MUTED
+ACCENT_CYAN   = FG_MUTED
+ACCENT_ORANGE = FG_MUTED
 
-DARK_TEXT = "#081016"   # 深色文字（用于亮色按钮上）
+DARK_TEXT = "#ffffff"   # 蓝色填充按钮上的文字
+
+
+def apply_app_theme() -> None:
+    """Apply the shared Qt stylesheet for the reference-image dark design."""
+    app = QApplication.instance()
+    if app is None:
+        return
+    app.setStyleSheet(f"""
+        QWidget {{
+            background: {BG_BASE};
+            color: {FG_PRIMARY};
+            font-family: "{FONT_FAMILY}";
+            font-size: 9pt;
+        }}
+        QDialog, QWidget#Tk, QWidget#Toplevel {{
+            background: {BG_BASE};
+        }}
+        QPushButton {{
+            background: {BG_CARD};
+            color: {FG_PRIMARY};
+            border: 1px solid #343434;
+            border-radius: 9px;
+            min-height: 28px;
+            padding: 4px 10px;
+            font-weight: 700;
+        }}
+        QPushButton:hover {{
+            background: {BG_HOVER};
+            border-color: #4a4a4a;
+        }}
+        QPushButton:pressed {{
+            background: #3a3a3a;
+        }}
+        QPushButton:disabled {{
+            color: {FG_DIM};
+            background: #252525;
+            border-color: #303030;
+        }}
+        QLineEdit, QTextEdit, QComboBox {{
+            background: {BG_CARD};
+            color: {FG_PRIMARY};
+            border: 1px solid #343434;
+            border-radius: 9px;
+            min-height: 30px;
+            padding: 4px 9px;
+            selection-background-color: {ACCENT_BLUE};
+        }}
+        QTextEdit {{
+            padding: 10px;
+        }}
+        QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
+            border-color: {ACCENT_BLUE};
+        }}
+        QTextEdit:disabled, QLineEdit:disabled {{
+            color: {FG_MUTED};
+            background: {BG_SURFACE};
+        }}
+        QTabWidget::pane {{
+            border: 1px solid #343434;
+            border-radius: 10px;
+            background: {BG_SURFACE};
+            top: -1px;
+        }}
+        QTabBar::tab {{
+            background: {BG_CARD};
+            color: {FG_MUTED};
+            border: 1px solid #343434;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            min-height: 26px;
+            padding: 5px 12px;
+            margin-right: 3px;
+        }}
+        QTabBar::tab:selected {{
+            background: {BG_HOVER};
+            color: {ACCENT_BLUE};
+            border-color: {ACCENT_BLUE};
+        }}
+        QScrollBar:vertical {{
+            width: 10px;
+            background: transparent;
+            margin: 2px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: #2d3946;
+            border-radius: 5px;
+            min-height: 28px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {ACCENT_BLUE};
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            height: 0;
+        }}
+        QScrollArea, QScrollArea:focus, QScrollArea QWidget {{
+            border: none;
+            outline: 0;
+        }}
+        QCheckBox, QRadioButton {{
+            color: {FG_MUTED};
+            spacing: 7px;
+        }}
+        QCheckBox::indicator, QRadioButton::indicator {{
+            width: 15px;
+            height: 15px;
+        }}
+        QSplitter::handle {{
+            background: {BORDER_SUBTLE};
+            width: 1px;
+        }}
+        QToolTip {{
+            background: {BG_SURFACE};
+            color: {FG_PRIMARY};
+            border: 1px solid {BORDER_SUBTLE};
+            border-radius: 6px;
+            padding: 6px 8px;
+        }}
+    """)
 
 
 # ── 鼠标滚轮绑定 ──────────────────────────────────────────────────
@@ -74,77 +193,106 @@ def make_panel(parent, bg: str = BG_ELEVATED, padx: int = 10, pady: int = 10) ->
 
 def make_scroll_canvas(parent, bg: str = BG_BASE):
     """
-    创建带纵向滚动条的 Canvas + 内部 Frame。
-    返回 (canvas, inner_frame)。
-    已自动绑定鼠标滚轮和 scrollregion。
+    创建带纵向滚动条的 Qt ScrollArea + 内部 Frame。
+    返回 (scroll_area, inner_frame)，保留旧调用名以减少业务代码改动。
     """
-    canvas = tk.Canvas(parent, bg=bg, highlightthickness=0)
-    sb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-    inner = tk.Frame(canvas, bg=bg)
-    win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+    scroll_area = tk.ScrollArea(parent, bg=bg, highlightthickness=0)
+    inner = tk.Frame(scroll_area, bg=bg)
+    scroll_area.set_widget(inner)
+    scroll_area.pack(fill=tk.BOTH, expand=True)
+    bind_mousewheel(scroll_area)
+    return scroll_area, inner
 
-    inner.bind("<Configure>",
-               lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
-    canvas.bind("<Configure>",
-                lambda e: canvas.itemconfig(win_id, width=e.width))
-    canvas.configure(yscrollcommand=sb.set)
 
-    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    sb.pack(side=tk.RIGHT, fill=tk.Y)
-    bind_mousewheel(canvas)
+def brick_text_score(text: str) -> int:
+    """Estimate visual width; CJK characters count wider than ASCII."""
+    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    if not lines:
+        return 0
+    return max(sum(2 if ord(ch) > 127 else 1 for ch in line) for line in lines)
 
-    return canvas, inner
+
+def brick_span(text: str, *, min_units: int = 3, max_units: int = 6) -> int:
+    """Return a 12-column span so short chips stay compact and long chips get room."""
+    score = brick_text_score(text)
+    if score <= 14:
+        span = min_units
+    elif score <= 22:
+        span = min_units + 1
+    elif score <= 32:
+        span = min_units + 2
+    else:
+        span = min_units + 3
+    return max(min_units, min(max_units, span))
+
+
+def prepare_brick_grid(frame, total_units: int = 12, spacing: int = 6) -> None:
+    """Configure a frame as a dense proportional brick grid."""
+    for col in range(total_units):
+        frame.grid_columnconfigure(col, weight=1)
+    if hasattr(frame, "_ensure_grid_layout"):
+        layout = frame._ensure_grid_layout()
+        layout.setHorizontalSpacing(spacing)
+        layout.setVerticalSpacing(spacing)
+
+
+def place_brick(widget, row: int, col: int, span: int, *,
+                total_units: int = 12, padx: int = 0, pady: int = 0) -> tuple[int, int]:
+    """Place a widget in the next available brick slot and return the next cursor."""
+    span = max(1, min(total_units, int(span)))
+    if col and col + span > total_units:
+        row += 1
+        col = 0
+    widget.grid(row=row, column=col, columnspan=span, sticky="ew", padx=padx, pady=pady)
+    height = getattr(widget, "_brick_height", None)
+    if height and hasattr(widget, "setMinimumHeight"):
+        widget.setFixedHeight(int(height))
+        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    col += span
+    if col >= total_units:
+        return row + 1, 0
+    return row, col
+
+
+def make_chip_button(widget, height: int = 38):
+    """Apply compact fixed-height chip styling after legacy button creation."""
+    widget._is_chip_button = True
+    widget._brick_height = int(height)
+    if hasattr(widget, "_apply_style"):
+        widget._apply_style()
+    widget.setFixedHeight(int(height))
+    widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+    return widget
 
 
 class Tooltip:
-    """鼠标悬停提示框（深色主题）。用法：Tooltip(widget, "提示文字")"""
+    """Qt-native tooltip wrapper. Avoids flashing helper Toplevel windows."""
 
     def __init__(self, widget: tk.Widget, text: str, delay: int = 600):
         self._widget = widget
         self._text   = text
         self._delay  = delay          # 毫秒，悬停多久后显示
-        self._tw     = None           # Toplevel 气泡窗口
+        self._tw     = None           # kept for compatibility with old call sites
         self._job    = None           # after() 任务 id
-        widget.bind("<Enter>",        self._on_enter, add="+")
-        widget.bind("<Leave>",        self._on_leave, add="+")
-        widget.bind("<ButtonPress>",  self._on_leave, add="+")
+        if hasattr(widget, "setToolTip"):
+            widget.setToolTip(text)
+        if hasattr(widget, "setToolTipDuration"):
+            widget.setToolTipDuration(12000)
 
     def _on_enter(self, _event=None):
-        self._cancel()
-        self._job = self._widget.after(self._delay, self._show)
+        return None
 
     def _on_leave(self, _event=None):
-        self._cancel()
-        self._hide()
+        QToolTip.hideText()
 
     def _cancel(self):
-        if self._job:
-            self._widget.after_cancel(self._job)
-            self._job = None
+        self._job = None
 
     def _show(self):
-        if self._tw:
-            return
-        x = self._widget.winfo_rootx() + 12
-        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 4
-        self._tw = tw = tk.Toplevel(self._widget)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.attributes("-topmost", True)
-        label = tk.Label(
-            tw, text=self._text, justify=tk.LEFT,
-            bg=BG_SURFACE, fg=ACCENT_YELLOW,
-            relief=tk.FLAT, bd=1,
-            font=(FONT_FAMILY, 8),
-            padx=10, pady=6,
-            wraplength=260,
-        )
-        label.pack()
+        return None
 
     def _hide(self):
-        if self._tw:
-            self._tw.destroy()
-            self._tw = None
+        QToolTip.hideText()
 
 
 def apply_dark_notebook_style() -> None:

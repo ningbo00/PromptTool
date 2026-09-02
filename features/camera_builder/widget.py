@@ -1,9 +1,8 @@
 """
 摄影机参数构建器窗口（从 main.py 抽取，依赖 shared/ 和 presets.py）
 """
-import tkinter as tk
-from tkinter import ttk
-import tkinter.simpledialog
+from shared import qt_compat as tk
+from shared.qt_compat import ttk, simpledialog
 
 from shared.ui_kit import (
     apply_dark_notebook_style, Tooltip,
@@ -17,7 +16,7 @@ from core.services.camera_prompt_service import append_negative_as_positive, res
 from features.camera_builder.scene_step import create_scene_step, build_subject_tab, refresh_subject_chips
 from features.camera_builder.style_step import (
     create_style_step, build_preset_tab, build_style_tab, build_filter_tab,
-    build_extractor_tab, refresh_style_blocks,
+    build_extractor_tab, refresh_style_blocks, make_preset_grid,
 )
 from features.camera_builder.camera_step import (
     create_camera_step, build_params_tab, build_camera_tab, render_params,
@@ -38,8 +37,8 @@ class CameraBuilder(tk.Toplevel):
         super().__init__(parent)
         self.on_insert = on_insert
         self.title("提示词生成器")
-        self.geometry("980x780")
-        self.minsize(920, 720)
+        self.geometry("1120x780")
+        self.minsize(1040, 720)
         self.configure(bg=BG_BASE)
         self.resizable(True, True)
         self.grab_set()
@@ -144,7 +143,7 @@ class CameraBuilder(tk.Toplevel):
     def _build_topbar(self):
         top = tk.Frame(self, bg=BG_ELEVATED, padx=12, pady=8,
                        highlightbackground=BORDER_SUBTLE, highlightthickness=1)
-        top.pack(fill=tk.X, padx=16, pady=(10, 4))
+        top.pack(fill=tk.X, padx=18, pady=(12, 6))
 
         brand = tk.Frame(top, bg=BG_ELEVATED)
         brand.pack(side=tk.LEFT)
@@ -187,7 +186,7 @@ class CameraBuilder(tk.Toplevel):
         style = ttk.Style()
         style.configure("H.TPanedwindow", background=BG_BASE)
         paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL, style="H.TPanedwindow")
-        paned.pack(fill=tk.BOTH, expand=True, padx=16, pady=(4, 12))
+        paned.pack(fill=tk.BOTH, expand=True, padx=18, pady=(6, 14))
 
         nb_host = tk.Frame(paned, bg=BG_BASE)
         paned.add(nb_host, weight=1)
@@ -255,6 +254,9 @@ class CameraBuilder(tk.Toplevel):
         self._generate()
 
     def _apply_preset(self, name, anime_mode):
+        from features.camera_builder.presets import PRESETS_ANIME as current_presets_anime
+        from features.camera_builder.presets import PRESETS_REAL as current_presets_real
+
         self.is_anime.set(anime_mode)
         self._mode_btn.config(
             text="● 开" if anime_mode else "○ 关",
@@ -263,13 +265,16 @@ class CameraBuilder(tk.Toplevel):
         )
         render_params(self)
 
-        preset = (PRESETS_ANIME if anime_mode else PRESETS_REAL)[name]
+        preset = (current_presets_anime if anime_mode else current_presets_real)[name]
         params = PARAMS_ANIME if anime_mode else PARAMS_REAL
         resolution = resolve_preset_values(
             preset,
             {pname: data[0] for pname, data in params.items()},
         )
         self.extra_var.set(resolution.extra)
+        if preset.get("_negative") and self.neg_text is not None:
+            self.neg_text.delete("1.0", tk.END)
+            self.neg_text.insert("1.0", preset["_negative"])
 
         for pname in self.custom_vars:
             self.custom_vars[pname].set("")
@@ -282,6 +287,18 @@ class CameraBuilder(tk.Toplevel):
                 self.custom_vars[pname].set(value)
 
         self._generate()
+
+    def _refresh_preset_tab(self):
+        if not getattr(self, "_real_preset_container", None) or not getattr(self, "_anime_preset_container", None):
+            return
+        from features.camera_builder.presets import PRESETS_REAL as current_presets_real
+        from features.camera_builder.presets import PRESETS_ANIME as current_presets_anime
+        for child in self._real_preset_container.winfo_children():
+            child.destroy()
+        for child in self._anime_preset_container.winfo_children():
+            child.destroy()
+        make_preset_grid(self, self._real_preset_container, current_presets_real, anime_mode=False)
+        make_preset_grid(self, self._anime_preset_container, current_presets_anime, anime_mode=True)
 
     # ── Tab5：主体场景 ────────────────────────────────────────────
     _SUBJECT_HINT = "描述主体（人物/动物/物体）..."
@@ -369,7 +386,7 @@ class CameraBuilder(tk.Toplevel):
 
     def _insert(self):
         prompt = self._state_collector.build_prompt()
-        title = tkinter.simpledialog.askstring(
+        title = simpledialog.askstring(
             "保存为 Prompt", "请输入标题：",
             parent=self, initialvalue="📷 摄影机设置",
         )

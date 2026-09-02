@@ -7,6 +7,8 @@
   SUBJECT_ANGLE                — 主体方位角滑条选项
   PRESETS_REAL / PRESETS_ANIME — 预设字典
 """
+from shared.storage import CUSTOM_PRESETS_FILE
+from core.services.custom_preset_service import MODE_CARTOON, MODE_REALISTIC, camera_presets_from_custom
 
 # 实拍模式基础参数  {显示名: (选项列表, keyword提取函数)}
 PARAMS_REAL = {
@@ -1424,3 +1426,21 @@ ANIME_STYLE_EXTRACTOR_PRESETS = [
         },
     },
 ]
+
+
+def reload_custom_presets() -> dict[str, dict]:
+    """Reload user-created style presets from JSON storage."""
+    custom_real = camera_presets_from_custom(CUSTOM_PRESETS_FILE, MODE_REALISTIC)
+    custom_cartoon = camera_presets_from_custom(CUSTOM_PRESETS_FILE, MODE_CARTOON)
+    for label in list(PRESETS_REAL):
+        if PRESETS_REAL[label].get("_custom_preset_id"):
+            PRESETS_REAL.pop(label, None)
+    for label in list(PRESETS_ANIME):
+        if PRESETS_ANIME[label].get("_custom_preset_id"):
+            PRESETS_ANIME.pop(label, None)
+    PRESETS_REAL.update(custom_real)
+    PRESETS_ANIME.update(custom_cartoon)
+    return {**custom_real, **custom_cartoon}
+
+
+reload_custom_presets()

@@ -44,6 +44,18 @@ def test_service_updates_prompt_and_persists():
     assert store.saved_snapshots[-1] == [Prompt("未命名", "updated")]
 
 
+def test_service_updates_prompt_shortcut_and_preserves_it_when_omitted():
+    store = InMemoryPromptStore([Prompt("A", "first", "Ctrl+Alt+1")])
+    service = PromptService(store)
+
+    service.update_prompt(0, "A2", "second")
+    assert service.library.prompts == [Prompt("A2", "second", "Ctrl+Alt+1")]
+
+    service.update_prompt(0, "A3", "third", "F8")
+    assert service.library.prompts == [Prompt("A3", "third", "F8")]
+    assert store.saved_snapshots[-1] == [Prompt("A3", "third", "F8")]
+
+
 def test_service_deletes_prompt_reindexes_selection_and_persists():
     store = InMemoryPromptStore(
         [Prompt("A", "first"), Prompt("B", "second"), Prompt("C", "third")]

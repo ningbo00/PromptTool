@@ -1,8 +1,8 @@
 """
 帮助文档窗口
 """
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
 
 from shared.ui_kit import (
     BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,

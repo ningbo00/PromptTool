@@ -1,4 +1,4 @@
-import tkinter as tk
+from shared import qt_compat as tk
 
 from core.services.camera_light_service import light_keyword
 from core.services.camera_prompt_service import (

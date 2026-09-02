@@ -1,0 +1,1 @@
+"""Screenshot prompt feature package."""

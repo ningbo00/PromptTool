@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
 
 from shared.ui_kit import (
     BG_BASE, BG_ELEVATED, BG_SURFACE, BG_CARD, BG_HOVER, BORDER_SUBTLE,
@@ -30,43 +30,37 @@ class PreviewPanel:
         extra_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=(8, 0))
         extra_entry.bind("<KeyRelease>", lambda _e: builder._generate())
 
-        # ── 外层：左右水平分栏 ──────────────────────────────────────
-        h_paned = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
-        h_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=(4, 8))
+        deck = tk.Frame(parent, bg=BG_SURFACE)
+        deck.pack(fill=tk.BOTH, expand=True, padx=10, pady=(4, 8))
+        deck.grid_columnconfigure(0, weight=3, minsize=300)
+        deck.grid_columnconfigure(1, weight=2, minsize=260)
+        deck.grid_rowconfigure(0, weight=3)
+        deck.grid_rowconfigure(2, weight=2)
 
-        # ── 左列：垂直分栏 → 正面(英文) / 负面(英文) ─────────────────
-        en_col = tk.Frame(h_paned, bg=BG_SURFACE)
-        h_paned.add(en_col, weight=3)
-
-        en_v_paned = ttk.PanedWindow(en_col, orient=tk.VERTICAL)
-        en_v_paned.pack(fill=tk.BOTH, expand=True)
-
-        # 正面英文
-        en_pos_outer = tk.Frame(en_v_paned, bg=BG_SURFACE)
-        en_v_paned.add(en_pos_outer, weight=3)
+        en_pos_outer = tk.Frame(deck, bg=BG_SURFACE)
+        en_pos_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=(0, 6))
         en_pos_hdr = tk.Frame(en_pos_outer, bg=BG_SURFACE)
-        en_pos_hdr.pack(fill=tk.X, pady=(4, 2))
+        en_pos_hdr.pack(fill=tk.X, pady=(0, 2))
         tk.Label(en_pos_hdr, text="🔤 正面提示词", bg=BG_SURFACE, fg=ACCENT_GREEN,
                  font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT, padx=6)
-        en_pos_frame = tk.Frame(en_pos_outer, bg=BG_SURFACE)
-        en_pos_frame.pack(fill=tk.BOTH, expand=True)
-        builder.preview_text = tk.Text(en_pos_frame, bg=BG_SURFACE, fg=ACCENT_GREEN,
+        builder.preview_text = tk.Text(en_pos_outer, bg=BG_SURFACE, fg=ACCENT_GREEN,
                                     relief=tk.FLAT, font=(FONT_FAMILY, 9),
                                     wrap=tk.WORD, padx=8, pady=6, state=tk.DISABLED)
-        en_pos_sb = ttk.Scrollbar(en_pos_frame, orient="vertical", command=builder.preview_text.yview)
-        builder.preview_text.configure(yscrollcommand=en_pos_sb.set)
-        builder.preview_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        en_pos_sb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 负面英文
-        en_neg_outer = tk.Frame(en_v_paned, bg=BG_SURFACE)
-        en_v_paned.add(en_neg_outer, weight=2)
+        cls._pack_text_area(en_pos_outer, builder.preview_text)
+
+        divider = tk.Frame(deck, bg=BORDER_SUBTLE)
+        divider.setMaximumHeight(1)
+        divider.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+
+        en_neg_outer = tk.Frame(deck, bg=BG_SURFACE)
+        en_neg_outer.grid(row=2, column=0, sticky="nsew", padx=(0, 8))
         en_neg_hdr = tk.Frame(en_neg_outer, bg=BG_SURFACE)
-        en_neg_hdr.pack(fill=tk.X, pady=(6, 2))
+        en_neg_hdr.pack(fill=tk.X, pady=(0, 2))
         tk.Label(en_neg_hdr, text="🚫 负面提示词", bg=BG_SURFACE, fg=ACCENT_RED,
                  font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT, padx=6)
 
-        def _copy_neg():
+        def _copy_neg(_checked=False):
             import pyperclip
             txt = builder.neg_preview_text.get("1.0", tk.END).strip() if builder.neg_preview_text else ""
             if txt:
@@ -74,7 +68,7 @@ class PreviewPanel:
                 _copy_neg_btn.config(text="✓ 已复制")
                 builder.after(1500, lambda: _copy_neg_btn.config(text="📋 复制负面词"))
 
-        def _toggle_neg_positive():
+        def _toggle_neg_positive(_checked=False):
             builder.neg_to_positive_enabled.set(not builder.neg_to_positive_enabled.get())
             on = builder.neg_to_positive_enabled.get()
             builder._neg_btn_ref.config(
@@ -103,56 +97,43 @@ class PreviewPanel:
         _neg_btn.pack(side=tk.RIGHT, padx=(0, 4))
         builder._neg_btn_ref = _neg_btn
 
-        en_neg_frame = tk.Frame(en_neg_outer, bg=BG_SURFACE)
-        en_neg_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
         builder.neg_preview_text = tk.Text(
-            en_neg_frame, bg=BG_SURFACE, fg=ACCENT_RED,
+            en_neg_outer, bg=BG_SURFACE, fg=ACCENT_RED,
             relief=tk.FLAT, font=(FONT_FAMILY, 9),
             wrap=tk.WORD, padx=8, pady=4, state=tk.DISABLED,
         )
-        en_neg_sb = ttk.Scrollbar(en_neg_frame, orient="vertical", command=builder.neg_preview_text.yview)
-        builder.neg_preview_text.configure(yscrollcommand=en_neg_sb.set)
-        builder.neg_preview_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        en_neg_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        cls._pack_text_area(en_neg_outer, builder.neg_preview_text)
 
-        # ── 右列：垂直分栏 → 正面(中文) / 负面(中文) ─────────────────
-        zh_col = tk.Frame(h_paned, bg=BG_BASE)
-        h_paned.add(zh_col, weight=2)
-
-        zh_v_paned = ttk.PanedWindow(zh_col, orient=tk.VERTICAL)
-        zh_v_paned.pack(fill=tk.BOTH, expand=True)
-
-        # 正面中文
-        zh_pos_outer = tk.Frame(zh_v_paned, bg=BG_BASE)
-        zh_v_paned.add(zh_pos_outer, weight=3)
+        zh_pos_outer = tk.Frame(deck, bg=BG_BASE)
+        zh_pos_outer.grid(row=0, column=1, sticky="nsew", pady=(0, 6))
         tk.Label(zh_pos_outer, text="🀄 正面中文对照", bg=BG_BASE, fg=ACCENT_YELLOW,
-                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", padx=6, pady=(4, 2))
-        zh_pos_frame = tk.Frame(zh_pos_outer, bg=BG_BASE)
-        zh_pos_frame.pack(fill=tk.BOTH, expand=True)
-        builder.preview_zh_text = tk.Text(zh_pos_frame, bg=BG_BASE, fg=ACCENT_YELLOW,
+                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", padx=6, pady=(0, 2))
+        builder.preview_zh_text = tk.Text(zh_pos_outer, bg=BG_BASE, fg=ACCENT_YELLOW,
                                        relief=tk.FLAT, font=(FONT_FAMILY, 9),
                                        wrap=tk.WORD, padx=8, pady=6, state=tk.DISABLED)
-        zh_pos_sb = ttk.Scrollbar(zh_pos_frame, orient="vertical", command=builder.preview_zh_text.yview)
-        builder.preview_zh_text.configure(yscrollcommand=zh_pos_sb.set)
-        builder.preview_zh_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        zh_pos_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        cls._pack_text_area(zh_pos_outer, builder.preview_zh_text)
 
-        # 负面中文
-        zh_neg_outer = tk.Frame(zh_v_paned, bg=BG_BASE)
-        zh_v_paned.add(zh_neg_outer, weight=2)
+        zh_neg_outer = tk.Frame(deck, bg=BG_BASE)
+        zh_neg_outer.grid(row=2, column=1, sticky="nsew")
         tk.Label(zh_neg_outer, text="🀄 负面中文对照", bg=BG_BASE, fg=ACCENT_RED,
-                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", padx=6, pady=(6, 2))
-        zh_neg_frame = tk.Frame(zh_neg_outer, bg=BG_BASE)
-        zh_neg_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
+                 font=(FONT_FAMILY, 8, "bold")).pack(anchor="w", padx=6, pady=(0, 2))
         builder.neg_zh_preview_text = tk.Text(
-            zh_neg_frame, bg=BG_BASE, fg=ACCENT_RED,
+            zh_neg_outer, bg=BG_BASE, fg=ACCENT_RED,
             relief=tk.FLAT, font=(FONT_FAMILY, 9),
             wrap=tk.WORD, padx=8, pady=4, state=tk.DISABLED,
         )
-        zh_neg_sb = ttk.Scrollbar(zh_neg_frame, orient="vertical", command=builder.neg_zh_preview_text.yview)
-        builder.neg_zh_preview_text.configure(yscrollcommand=zh_neg_sb.set)
-        builder.neg_zh_preview_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        zh_neg_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        cls._pack_text_area(zh_neg_outer, builder.neg_zh_preview_text)
+
+    @staticmethod
+    def _pack_text_area(parent, text_widget):
+        text_widget.setLineWrapColumnOrWidth(0)
+        text_widget.setMinimumWidth(0)
+        text_widget.setMaximumWidth(16777215)
+        sb = ttk.Scrollbar(parent, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=sb.set)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
     @staticmethod
     def write_text(widget, text: str) -> None:
         if widget is None:

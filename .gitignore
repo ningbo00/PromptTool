@@ -12,6 +12,7 @@ env/
 
 # Runtime user data and secrets
 ai_config.json
+custom_presets.json
 
 # Build and release artifacts
 build/

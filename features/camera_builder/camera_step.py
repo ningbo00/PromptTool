@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
 
 from shared.ui_kit import (
     make_scroll_canvas, BG_BASE, BG_SURFACE, BG_CARD, BG_HOVER,
@@ -155,7 +155,7 @@ def build_sliders_section(builder, parent):
     SPHERE_SIZE = 160
     builder._light_sphere_canvas = tk.Canvas(
         light_body, width=SPHERE_SIZE, height=SPHERE_SIZE,
-        bg="#1a1a2e", highlightthickness=1, highlightbackground=BG_HOVER,
+        bg=BG_SURFACE, highlightthickness=1, highlightbackground=BG_HOVER,
         cursor="crosshair",
     )
     builder._light_sphere_canvas.pack(side=tk.LEFT, padx=(0, 12))
@@ -175,14 +175,14 @@ def build_sliders_section(builder, parent):
         hemi_row, text="前", bg=ACCENT_BLUE, fg=DARK_TEXT,
         relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
         cursor="hand2", activebackground=ACCENT_BLUE,
-        command=lambda: set_hemi(builder, False),
+        command=lambda _checked=False: set_hemi(builder, False),
     )
     builder._hemi_front_btn.pack(side=tk.LEFT, padx=(6, 2))
     builder._hemi_back_btn = tk.Button(
         hemi_row, text="后", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 8, "bold"), padx=8, pady=2,
         cursor="hand2", activebackground=BG_HOVER,
-        command=lambda: set_hemi(builder, True),
+        command=lambda _checked=False: set_hemi(builder, True),
     )
     builder._hemi_back_btn.pack(side=tk.LEFT)
 
@@ -193,7 +193,7 @@ def build_sliders_section(builder, parent):
     builder._light_color_btn = tk.Button(
         color_row, text="", width=3, relief=tk.FLAT, cursor="hand2",
         bg=builder.light_color, activebackground=builder.light_color,
-        command=lambda: pick_light_color(builder),
+        command=lambda _checked=False: pick_light_color(builder),
     )
     builder._light_color_btn.pack(side=tk.LEFT, padx=(8, 0), ipady=6)
     builder._light_color_label = tk.Label(
@@ -224,6 +224,6 @@ def build_sliders_section(builder, parent):
     builder._rim_btn = tk.Button(
         sec4, text="○ 关", bg=BG_HOVER, fg=FG_PRIMARY,
         relief=tk.FLAT, font=("微软雅黑", 9, "bold"), padx=10, pady=2,
-        cursor="hand2", command=lambda: toggle_rim_light(builder),
+        cursor="hand2", command=lambda _checked=False: toggle_rim_light(builder),
     )
     builder._rim_btn.pack(side=tk.RIGHT)

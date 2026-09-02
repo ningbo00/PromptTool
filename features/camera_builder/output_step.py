@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import ttk
+from shared import qt_compat as tk
+from shared.qt_compat import ttk
 
 from shared.ui_kit import (
     make_scroll_canvas, Tooltip, BG_BASE, BG_CARD, BG_HOVER,
@@ -82,7 +82,7 @@ def build_detail_tab(builder):
             bg=BG_CARD, fg=ACCENT_RED, relief=tk.FLAT,
             font=("微软雅黑", 8, "bold"), padx=10, pady=3, cursor="hand2",
             activebackground=BG_HOVER,
-            command=lambda k=key: fill_negative_preset(builder, k),
+            command=lambda _checked=False, k=key: fill_negative_preset(builder, k),
         )
         b.pack(side=tk.LEFT, padx=(0, 6))
         tips = {"通用": "通用负面词\n追加常用负面词（模糊/低质/水印/多余文字/解剖错误等），适合所有风格。",

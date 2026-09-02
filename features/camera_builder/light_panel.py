@@ -1,5 +1,5 @@
 import math
-from tkinter.colorchooser import askcolor
+from shared.qt_compat import askcolor
 
 from core.services.camera_light_service import (
     SPHERE_R,
@@ -44,17 +44,17 @@ def draw_light_sphere(builder) -> None:
             points.extend([x, y])
             mirror_points.extend([mx, my])
         if len(points) >= 4:
-            canvas.create_line(points, fill="#2a2a4a", width=1, smooth=True)
+            canvas.create_line(points, fill="#3a3a3a", width=1, smooth=True)
         if len(mirror_points) >= 4:
-            canvas.create_line(mirror_points, fill="#2a2a4a", width=1, smooth=True)
+            canvas.create_line(mirror_points, fill="#3a3a3a", width=1, smooth=True)
 
     for el_deg in [-60, -30, 0, 30, 60]:
         _, yy = sphere_xy_from_angles(0, el_deg)
         ry = r * math.cos(math.radians(el_deg))
-        col = "#3a3a5a" if el_deg != 0 else "#4a4a6a"
+        col = "#464646" if el_deg != 0 else "#555555"
         canvas.create_oval(cx - ry, yy - ry * 0.15, cx + ry, yy + ry * 0.15, outline=col, width=1, fill="")
 
-    canvas.create_oval(cx - r, cy - r * 0.15, cx + r, cy + r * 0.15, outline="#55557a", width=1, fill="")
+    canvas.create_oval(cx - r, cy - r * 0.15, cx + r, cy + r * 0.15, outline="#5f5f5f", width=1, fill="")
 
     lx, ly = sphere_xy_from_angles(builder.light_azimuth.get(), builder.light_elevation.get())
     canvas.create_line(cx, cy, lx, ly, fill=ACCENT_YELLOW, width=1, dash=(3, 3))
@@ -62,7 +62,7 @@ def draw_light_sphere(builder) -> None:
     dot_r = 7
     color = builder.light_color or "#ffffff"
     for halo in [14, 10]:
-        alpha_col = blend_color(color, "#1a1a2e", halo / 14)
+        alpha_col = blend_color(color, "#242424", halo / 14)
         canvas.create_oval(lx - halo, ly - halo, lx + halo, ly + halo, outline="", fill=alpha_col)
     canvas.create_oval(lx - dot_r, ly - dot_r, lx + dot_r, ly + dot_r,
                        outline="#ffffff", width=1, fill=color, tags="dot")

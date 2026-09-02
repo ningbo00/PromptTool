@@ -13,6 +13,7 @@ else:
     _BASE_DIR = os.path.dirname(_BASE_DIR)   # shared/ 的上级 = 项目根
 
 DATA_FILE = os.path.join(_BASE_DIR, "prompts.json")
+CUSTOM_PRESETS_FILE = os.path.join(_BASE_DIR, "custom_presets.json")
 
 
 def load_prompts():

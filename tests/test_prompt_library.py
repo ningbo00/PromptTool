@@ -2,10 +2,20 @@ from core.domain.prompt_library import Prompt, PromptLibrary, PromptSelection
 
 
 def test_prompt_normalizes_title_and_content():
-    prompt = Prompt(title="  Title  ", content="  Body  ")
+    prompt = Prompt(title="  Title  ", content="  Body  ", shortcut=" Ctrl+Alt+1 ")
 
     assert prompt.title == "Title"
     assert prompt.content == "Body"
+    assert prompt.shortcut == "Ctrl+Alt+1"
+
+
+def test_prompt_to_dict_omits_empty_shortcut_and_keeps_configured_shortcut():
+    assert Prompt("A", "first").to_dict() == {"title": "A", "content": "first"}
+    assert Prompt("A", "first", "Ctrl+Alt+1").to_dict() == {
+        "title": "A",
+        "content": "first",
+        "shortcut": "Ctrl+Alt+1",
+    }
 
 
 def test_prompt_display_label_prefers_title():
@@ -38,6 +48,7 @@ def test_library_search_treats_placeholder_as_empty_query():
     library = PromptLibrary([Prompt("A", ""), Prompt("B", "")])
 
     assert library.search("搜索...") == [0, 1]
+    assert library.search("Search") == [0, 1]
 
 
 def test_library_add_save_update_and_delete_prompt():
@@ -58,6 +69,16 @@ def test_library_update_empty_title_defaults_to_unnamed():
     library.update_prompt(0, title="   ", content="New Body")
 
     assert library.prompts[0] == Prompt("未命名", "New Body")
+
+
+def test_library_update_preserves_or_replaces_shortcut():
+    library = PromptLibrary([Prompt("Old", "Body", "Ctrl+Alt+1")])
+
+    library.update_prompt(0, title="New", content="Body 2")
+    assert library.prompts[0] == Prompt("New", "Body 2", "Ctrl+Alt+1")
+
+    library.update_prompt(0, title="New", content="Body 3", shortcut="F8")
+    assert library.prompts[0] == Prompt("New", "Body 3", "F8")
 
 
 def test_library_move_swaps_prompts_and_returns_new_index():

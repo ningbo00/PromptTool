@@ -1,9 +1,8 @@
 """
 AI 优化 Prompt 弹出窗口（10 项增强功能版 v2 — 逻辑修复）
 """
-import tkinter as tk
-from tkinter import ttk, messagebox
-import tkinter.simpledialog
+from shared import qt_compat as tk
+from shared.qt_compat import ttk, messagebox, simpledialog
 import pyperclip
 
 from shared.ui_kit import (
@@ -55,11 +54,11 @@ class AIOptimizeDialog(tk.Toplevel):
     def __init__(self, parent, current_prompt: str, on_apply=None, on_saveas=None):
         super().__init__(parent)
         self.title("🤖 AI 协助优化 Prompt")
-        self.geometry("960x700")
+        self.geometry("1560x900")
         self.configure(bg=BG_BASE)
         self.grab_set()
         self.resizable(True, True)
-        self.minsize(720, 520)
+        self.minsize(1360, 820)
 
         self._current    = current_prompt
         self._on_apply   = on_apply
@@ -95,6 +94,7 @@ class AIOptimizeDialog(tk.Toplevel):
         self._variant_frame   = None
         self._preset_var      = None
         self._custom_var      = None
+        self._action_bar      = None
 
         self._build_ui()
         self._auto_translate_original()
@@ -103,13 +103,17 @@ class AIOptimizeDialog(tk.Toplevel):
     #  UI 骨架
     # ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        instruction = InstructionPanel(self, self.PRESETS, self._length_var)
+        root = tk.Frame(self, bg=BG_BASE)
+        root.pack(fill=tk.BOTH, expand=True)
+
+        instruction = InstructionPanel(root, self.PRESETS, self._length_var)
         self._preset_var = instruction.preset_var
         self._custom_var = instruction.custom_var
         self._hist_mb = instruction.history_button
         self._history_menu = instruction.history_menu
 
-        action_bar = ActionBar(self)
+        action_bar = ActionBar(root)
+        self._action_bar = action_bar
         primary_row = action_bar.add_group("主要流程")
         advanced_row = action_bar.add_group("高级工具")
         result_row = action_bar.add_group("结果操作")
@@ -124,45 +128,58 @@ class AIOptimizeDialog(tk.Toplevel):
             """secondary button — 不加入 action_btns"""
             return action_bar.action_button(parent, text, cmd, color, state=state, tip=tip)
 
-        _abtn("🚀 发送",        self._run_ai,          ACCENT_BLUE,
+        _abtn("发送",        self._run_ai,          ACCENT_BLUE,
               tip="🚀 发送\n按照所选[优化方向]，将原始 Prompt 发送给 AI 进行优化。\n首先在上方选择预设方向（如[优化英文语法]），然后点击此按钮。")
-        self._iterate_btn = _abtn("🔄 再优化",  self._iterate,         ACCENT_CYAN,   tk.DISABLED,
+        self._iterate_btn = _abtn("再优化",  self._iterate,         ACCENT_CYAN,   tk.DISABLED,
               tip="🔄 再优化\n将右侧 AI 优化结果自动填入左侧原始框，然后再次发送给 AI 进行第二轮优化。\n可以反复使用，逐步提升 Prompt 质量。")
-        _abtn("🌐 中文→英",    self._zh_to_en,         ACCENT_PURPLE,
+        _abtn("中文转英",    self._zh_to_en,         ACCENT_PURPLE,
               tip="🌐 中文→英\n在左侧框输入中文场景描述（如[夕阳下的少女]），AI 会将其转化为适合图像生成的英文 Prompt（逗号分隔关键词格式）。")
-        _abtn("🔀 生成3变体",  self._gen_variants,     ACCENT_ORANGE,
+        _abtn("生成变体",  self._gen_variants,     ACCENT_ORANGE,
               tip="🔀 生成3变体\n让 AI 一次生成同一方向的 3 个不同风格版本，下方会出现单选按钮供选择，选中后才能应用。")
-        _abtn("🎯 AI评分",     self._score,            ACCENT_YELLOW, parent=advanced_row,
+        _abtn("AI评分",     self._score,            ACCENT_YELLOW, parent=advanced_row,
               tip="🎯 AI评分\n让 AI 对当前原始 Prompt 进行质量评分（1-10分），给出 3 条具体改进建议，并自动检测词汇矛盾。评分结果显示在底部评分区。")
-        _abtn("🏷 提取关键词", self._extract_keywords, "#74c7ec", parent=advanced_row,
+        _abtn("提取关键词", self._extract_keywords, ACCENT_BLUE, parent=advanced_row,
               tip="🏷 提取关键词\n从原始 Prompt 中提取 10-15 个最核心的语义关键词，以蓝色标签显示在底部。点击任意标签可将该词复制到剪贴板。")
-        _abtn("💡 仅扩写",     self._expand_only,      "#a6e3a1", parent=advanced_row,
+        _abtn("仅扩写",     self._expand_only,      FG_MUTED, parent=advanced_row,
               tip="💡 仅扩写\nAI 不修改原有内容，只在末尾追加新的细节词（场景细节、光线质感、情绪氛围等）。\n输出格式：原文, [新增：追加词]")
 
-        advanced_row2 = tk.Frame(advanced_row, bg=BG_ELEVATED)
-        advanced_row2.pack(fill=tk.X, pady=(4, 0))
-        _abtn("🧙 引导创作",   self._guided_create,    ACCENT_PURPLE, parent=advanced_row2,
+        _abtn("引导创作",   self._guided_create,    ACCENT_PURPLE, parent=advanced_row,
               tip="🧙 引导创作\n如果你不知道怎么写 Prompt，AI 会一步步提问你主体、场景、氛围、风格和特殊要求，最后自动生成完整 Prompt。")
-        _abtn("🚫 推荐负面词", self._recommend_negative, ACCENT_RED, parent=advanced_row2,
+        _abtn("推荐负面词", self._recommend_negative, ACCENT_RED, parent=advanced_row,
               tip="🚫 推荐负面词\n根据当前 Prompt，AI 自动推荐适合排除的负面词，按分组显示在底部，点击即可复制。")
-        _abtn("📖 描述转Prompt", self._desc_to_prompt, ACCENT_ORANGE, parent=advanced_row2,
+        _abtn("描述转Prompt", self._desc_to_prompt, ACCENT_ORANGE, parent=advanced_row,
               tip="📖 描述转Prompt\n把一段自然语言描述、小说片段或中文场景说明，提炼成适合生图/生视频的英文 Prompt。")
-        _abtn("🛡 合规检验",   self._compliance_check, "#94e2d5", parent=advanced_row2,
+        _abtn("合规检验",   self._compliance_check, FG_MUTED, parent=advanced_row,
               tip="🛡 合规检验\n检测 Prompt 中可能导致 AI 视频/图像平台拒绝生成的违规词或敏感内容，结果显示在底部，标出违规词并给出修改建议。")
 
-        self._apply_btn  = _sbtn("✅ 应用到编辑器", self._apply,   ACCENT_GREEN, tk.DISABLED,
+        self._apply_btn  = _sbtn("应用", self._apply,   ACCENT_GREEN, tk.DISABLED,
               tip="✅ 应用到编辑器\n将右侧 AI 优化结果替换到主窗口的编辑区（需要再点[保存]才能持久化）。")
-        self._saveas_btn = _sbtn("💾 另存为",       self._saveas,  "#f9e2af",    tk.DISABLED,
+        self._saveas_btn = _sbtn("另存",       self._saveas,  FG_MUTED,    tk.DISABLED,
               tip="💾 另存为\n将 AI 优化结果作为新的 Prompt 保存到列表（会弹出对话框要求输入标题），不影响原始 Prompt。")
-        _sbtn("✕ 关闭", self.destroy, ACCENT_RED,
+        _sbtn("关闭", self.destroy, ACCENT_RED,
               tip="✕ 关闭\n关闭 AI 优化窗口，回到主界面。")
+
+        body_header = tk.Frame(root, bg=BG_BASE)
+        body_header.pack(fill=tk.X, padx=12, pady=(0, 4))
+        tk.Label(body_header, text="Left Input", bg=BG_BASE, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT)
+        tk.Label(body_header, text="Right Result", bg=BG_BASE, fg=FG_MUTED,
+                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.RIGHT)
+
+        # ── 主分割 ──────────────────────────────────────────────────
+        paned = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
+        paned.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 2))
+        self._orig_text, self._orig_zh_text = self._make_left_pane(paned)
+        self._result_text, self._result_zh_text = self._make_right_pane(paned)
+
+        paned.setMinimumHeight(360)
 
         # ── 变体选择区（动态插入，先占位） ────────────────────────
         # 注意：必须作为 bottom_area 的子控件，否则 paned(expand) 会占满空间
         # 此处先创建占位，等 bottom_area 创建后再重建
 
         # ── 底部固定区（状态栏 + 变体选择 + 关键词 + 评分 + 负面推荐，必须在 paned 前 pack） ──
-        bottom_area = InsightsPanel(self).frame
+        bottom_area = InsightsPanel(root).frame
 
         # ── 变体选择区（放在 bottom_area 最顶部，紧贴结果区下方） ──
         self._variant_frame = tk.Frame(bottom_area, bg=BG_BASE)
@@ -189,19 +206,15 @@ class AIOptimizeDialog(tk.Toplevel):
             self._improve_by_score,
             self._score_frame.pack_forget,
         )
+        for hidden_frame in (
+            self._variant_frame,
+            self._kw_frame,
+            self._neg_rec_frame,
+            self._compliance_frame,
+            self._score_frame,
+        ):
+            hidden_frame.pack_forget()
 
-        body_header = tk.Frame(self, bg=BG_BASE)
-        body_header.pack(fill=tk.X, padx=12, pady=(0, 4))
-        tk.Label(body_header, text="Left Input", bg=BG_BASE, fg=FG_MUTED,
-                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT)
-        tk.Label(body_header, text="Right Result", bg=BG_BASE, fg=FG_MUTED,
-                 font=(FONT_FAMILY, 8, "bold")).pack(side=tk.RIGHT)
-
-        # ── 主分割 ──────────────────────────────────────────────────
-        paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
-        paned.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 2))
-        self._orig_text, self._orig_zh_text = self._make_left_pane(paned)
-        self._result_text, self._result_zh_text = self._make_right_pane(paned)
 
         # 填入原始内容
         self._orig_text.insert("1.0", self._current)
@@ -250,7 +263,7 @@ class AIOptimizeDialog(tk.Toplevel):
                           font=(FONT_FAMILY, 9), wrap=tk.WORD, padx=8, pady=6,
                           state=tk.DISABLED)
         en_text.pack(fill=tk.BOTH, expand=True)
-        en_text.tag_config("added",   foreground="#a6e3a1")   # 亮绿（新增）
+        en_text.tag_config("added",   foreground=FG_MUTED)   # 亮绿（新增）
         en_text.tag_config("removed", foreground=ACCENT_RED,
                            font=(FONT_FAMILY, 9, "overstrike"))  # 红色删除线
         en_text.tag_config("normal",  foreground=ACCENT_GREEN)
@@ -420,7 +433,7 @@ class AIOptimizeDialog(tk.Toplevel):
             messagebox.showinfo("提示", str(exc), parent=self)
             return
         self._set_status("⏳ AI 评分中…")
-        self._score_frame.pack(fill=tk.X, padx=12, pady=(2, 4))
+        self._score_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(2, 4))
         self._score_text.config(state=tk.NORMAL)
         self._score_text.delete("1.0", tk.END)
         self._score_text.insert("1.0", "（评分中…）")
@@ -660,7 +673,7 @@ class AIOptimizeDialog(tk.Toplevel):
             label = f"#{i+1} {direction[:14]}… | {preview}…"
             self._history_menu.add_command(
                 label=label,
-                command=lambda r=result: self._restore_history(r),
+                command=lambda _checked=False, r=result: self._restore_history(r),
             )
 
     def _restore_history(self, result: str):

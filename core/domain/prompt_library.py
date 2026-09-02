@@ -5,10 +5,12 @@ from dataclasses import dataclass, field
 class Prompt:
     title: str = ""
     content: str = ""
+    shortcut: str = ""
 
     def __post_init__(self):
         object.__setattr__(self, "title", str(self.title).strip())
         object.__setattr__(self, "content", str(self.content).strip())
+        object.__setattr__(self, "shortcut", str(self.shortcut).strip())
 
     def display_label(self, fallback_length: int = 20) -> str:
         if self.title:
@@ -18,7 +20,10 @@ class Prompt:
         return self.content
 
     def to_dict(self) -> dict:
-        return {"title": self.title, "content": self.content}
+        data = {"title": self.title, "content": self.content}
+        if self.shortcut:
+            data["shortcut"] = self.shortcut
+        return data
 
 
 @dataclass
@@ -30,7 +35,7 @@ class PromptLibrary:
 
     def search(self, query: str) -> list[int]:
         normalized = query.strip().lower()
-        if normalized == "搜索...":
+        if normalized in ("搜索...", "search"):
             normalized = ""
         if not normalized:
             return list(range(len(self.prompts)))
@@ -41,14 +46,15 @@ class PromptLibrary:
             or normalized in prompt.content.lower()
         ]
 
-    def add_prompt(self, title: str = "新 Prompt", content: str = "") -> int:
-        self.prompts.append(Prompt(title, content))
+    def add_prompt(self, title: str = "新 Prompt", content: str = "", shortcut: str = "") -> int:
+        self.prompts.append(Prompt(title, content, shortcut))
         return len(self.prompts) - 1
 
-    def update_prompt(self, index: int, title: str, content: str) -> None:
+    def update_prompt(self, index: int, title: str, content: str, shortcut: str | None = None) -> None:
         self._validate_index(index)
         normalized_title = str(title).strip() or "未命名"
-        self.prompts[index] = Prompt(normalized_title, content)
+        saved_shortcut = self.prompts[index].shortcut if shortcut is None else shortcut
+        self.prompts[index] = Prompt(normalized_title, content, saved_shortcut)
 
     def delete_prompt(self, index: int) -> Prompt:
         self._validate_index(index)
@@ -77,7 +83,7 @@ class PromptLibrary:
         if isinstance(prompt, Prompt):
             return prompt
         if isinstance(prompt, dict):
-            return Prompt(prompt.get("title", ""), prompt.get("content", ""))
+            return Prompt(prompt.get("title", ""), prompt.get("content", ""), prompt.get("shortcut", ""))
         raise TypeError(f"Unsupported prompt type: {type(prompt)!r}")
 
 

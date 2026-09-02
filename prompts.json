@@ -1,11 +1,11 @@
 [
   {
-    "title": "通用助手",
-    "content": "你是一个专业的 AI 助手，请根据用户需求给出准确、清晰、结构化的中文回答。优先直接解决问题，必要时再补充说明与示例。"
-  },
-  {
     "title": "代码审查",
     "content": "请对以下代码进行审查，重点检查：1）潜在 bug；2）性能问题；3）可维护性；4）安全风险。请按“问题 - 原因 - 修改建议”的格式输出，并给出必要的示例代码。\n\n[在此粘贴代码]"
+  },
+  {
+    "title": "通用助手",
+    "content": "你是一个专业的 AI 助手，请根据用户需求给出准确、清晰、结构化的中文回答。优先直接解决问题，必要时再补充说明与示例。"
   },
   {
     "title": "翻译助手",
@@ -42,5 +42,81 @@
   {
     "title": "📷 摄影机设置",
     "content": "low angle anime, cel shading, Gainax style, dramatic shadow, dark fantasy, 紧张震撼, 4:3, ultra detailed, official art, close-up, Hideaki Anno visual style, stark industrial architecture, harsh fluorescent interior light, desaturated concrete environment, heavy shadow contrast"
+  },
+  {
+    "title": "fsdfd",
+    "content": "fsdfdsf"
+  },
+  {
+    "title": "sadfsf",
+    "content": "sadfasdfasdf"
+  },
+  {
+    "title": "📷 摄影机设置",
+    "content": "14mm, f/1.2, ISO 100, 1/4000s, dutch angle, handheld, anamorphic 2.39:1, rule of thirds, shallow depth of field, shot on Sony A7IV, natural light, teal and orange, aspect ratio 16:9, 4K, close-up"
+  },
+  {
+    "title": "截图反推 Prompt 18:03",
+    "content": "interface, software, dark theme, clean layout, close-up view, soft lighting, minimalistic, sleek, high-quality, modern, sharp details, user-friendly, professional"
+  },
+  {
+    "title": "截图反推 Prompt 18:04",
+    "content": "empty, void, minimalist, centered, flat, monochrome, high contrast, 4k quality"
+  },
+  {
+    "title": "截图反推 Prompt 18:04",
+    "content": "girl, anime style, orange crop top, black shorts, thigh-high stockings, pink socks, cat ears headband, glasses, peace sign, white background, soft lighting, vibrant colors, detailed texture, high quality, close-up composition, dynamic pose"
+  },
+  {
+    "title": "截图反推 Prompt 23:51",
+    "content": "anime girl, teal long hair, black horns with purple wings, dragon-themed outfit, black shiny bodysuit, orange arm sleeves, purple thigh-high boots with bat patterns, white feathered shoulder armor, seductive pose, close-up portrait, soft lighting, vibrant colors, high detail, smooth skin texture, glossy fabric, fantasy style, digital art, 8k quality"
+  },
+  {
+    "title": "截图反推 Prompt 13:43",
+    "content": "cyberpunk anime girl, vibrant neon hair with pink and blue streaks, glowing multicolored eyes, futuristic black outfit with geometric patterns, dynamic close-up portrait, dramatic lighting with sharp contrasts, cybernetic aesthetic, high detail, ultra HD, digital art style, vivid colors, cinematic composition, reflective surfaces, sci-fi atmosphere, 8K resolution"
+  },
+  {
+    "title": "截图反推 Prompt 13:43",
+    "content": "anime girl, vibrant neon hair with pink and blue highlights, large expressive eyes with colorful irises, futuristic cyberpunk aesthetic, dynamic lighting with glowing streaks, high contrast shadows, sharp focus on face, abstract geometric background with radiant lines, cinematic close-up shot, ultra-detailed, 8k resolution, digital art style, vivid colors, glossy skin texture, sci-fi fashion elements, dramatic pose, intense gaze, anime illustration, hyper-realistic rendering"
+  },
+  {
+    "title": "截图场景反推 12:18",
+    "content": "school hallway, modern Japanese high school architecture, long corridor with white walls and gray flooring, large windows on the left side showing green trees outside, sunlight streaming through windows creating soft shadows, classroom doors labeled \"2-A\" on the right, clean and polished floor reflecting light, lockers and bulletin boards along the walls, bright and airy atmosphere, daytime setting, detailed interior design with ceiling lights and ventilation grilles, realistic lighting and depth perspective, anime-style environment with attention to architectural details"
+  },
+  {
+    "title": "截图服装道具 12:19",
+    "content": "school uniform, maroon blazer with gold trim, white collared shirt, navy blue necktie, pleated gray skirt with gold trim, black sheer stockings, brown leather shoes, green hair in high ponytail, purple eyes, anime style, detailed fabric texture, soft lighting, classroom hallway background, clean and polished materials, subtle shadows on clothing, realistic folds in fabric, small decorative buttons on blazer, crisp collar details, smooth skin texture, natural pose, accessories include simple earrings, no visible weapons or tools, focus on costume layers and material language"
+  },
+  {
+    "title": "截图镜头语言 12:21",
+    "content": "medium shot, eye-level angle, symmetrical framing, shallow depth of field, natural lighting, soft shadows, wide-angle lens feel, static camera, clean corridor perspective, bright and airy atmosphere, slight foreground blur, background depth extension"
+  },
+  {
+    "title": "截图负面词 12:22",
+    "content": "bad anatomy, deformed hands, extra fingers, missing limbs, distorted face, blurry details, noisy texture, low resolution, poor lighting, inconsistent shadows, unnatural proportions, bad perspective, cluttered background, unwanted objects, text, watermark, signature, artifacts, overexposed, underexposed, grainy, pixelated, stretched features, misaligned eyes, incorrect number of fingers, fused fingers, floating limbs, awkward pose, unrealistic skin texture, bad shading, flat colors, cartoonish style, non-anime style, realistic photography, 3D render, low detail, poorly drawn hair, messy hair, incomplete clothing, visible seams, transparent parts, broken symmetry, distorted body parts, excessive distortion, wrong perspective, mismatched limbs, anatomical errors, ugly, grotesque, horror elements, surreal elements, fantasy elements, inappropriate content, nudity, explicit content"
+  },
+  {
+    "title": "截图光色分析 12:24",
+    "content": "soft natural key light from left side windows, gentle fill light balancing shadows, subtle rim light on hair and shoulders, warm daylight color temperature, high contrast with bright highlights and deep shadows, clean white balance, cool blue tones in background walls, warm red and gold accents on uniform, cinematic grading with slight desaturation in background, sharp focus on subject, smooth skin tone with soft glow, ambient occlusion for depth, realistic light diffusion on floor and walls"
+  },
+  {
+    "title": "Long Prompt Title For Compact Mode",
+    "content": "content"
+  },
+  {
+    "title": "x",
+    "content": "y"
+  },
+  {
+    "title": "Long Prompt Title For Compact Mode",
+    "content": "content"
+  },
+  {
+    "title": "截图光色分析 11:00",
+    "content": "English Prompt: A vibrant tropical resort entrance with warm golden key light casting soft shadows, complemented by a gentle fill light that enhances the colorful palette of pastel buildings and lush greenery. Rim lighting subtly outlines the thatched roof and wooden structures, adding depth and dimension. The light direction is slightly angled from the upper left, creating dynamic highlights on the cobblestone path and surfboard decorations. Soft, diffused lighting with a high color temperature emphasizes the cheerful, sunny atmosphere. Color grading features rich saturation with a slight teal-and-orange contrast, enhancing the tropical vibe. The scene includes detailed textures like woven straw roofs, wooden planks, and tropical foliage, all rendered in high resolution with cinematic exposure and balanced contrast for a lively, inviting ambiance.\n\n中文预览：一个充满活力的热带度假村入口，温暖的金色主光投下柔和的阴影，辅以柔和的补光，增强了粉彩色建筑和茂密绿植的色彩表现。轮廓光微妙地勾勒出茅草屋顶和木质结构，增加层次感。光线方向从左上方略微倾斜，在石板路和冲浪板装饰上形成动态高光。柔和的漫射光与较高的色温突出了欢快、阳光明媚的氛围。调色采用丰富的饱和度，带有轻微的青橙对比，强化了热带风情。场景包含编织茅草屋顶、木板和热带植物等细节纹理，以高分辨率呈现，具有电影级曝光和均衡对比度，营造出生动而诱人的氛围。"
+  },
+  {
+    "title": "截图光色分析 19:07",
+    "content": "English Prompt: A minimalist black background with subtle gradient lighting, featuring a soft key light from the upper left casting gentle highlights, balanced by a faint fill light from the lower right to reduce shadows, and a delicate rim light outlining the edges with a cool blue tone, creating depth; color grading emphasizes deep blacks and rich contrast with a cinematic teal-and-orange palette, enhanced by low exposure and high dynamic range for a dramatic, moody atmosphere, shot with a wide-angle lens in 8K resolution, ultra-detailed texture, professional cinematography style  \n中文预览：纯黑色背景，带有微妙的渐变光效，主光源来自左上方投射柔和高光，右下方辅以微弱补光减少阴影，边缘用冷蓝色轮廓光勾勒出层次感；调色强调深邃黑与强烈对比，采用电影级青橙色调，低曝光和高动态范围增强戏剧性氛围，使用广角镜头拍摄，8K分辨率，超精细质感，专业电影摄影风格"
   }
 ]

@@ -1,4 +1,4 @@
-import tkinter as tk
+from shared import qt_compat as tk
 
 from core.services.camera_negative_service import apply_negative_preset
 from features.camera_builder.presets import NEG_PRESETS

@@ -1,7 +1,9 @@
-import tkinter as tk
+from shared import qt_compat as tk
 
 from shared.ui_kit import (
-    make_scroll_canvas, Tooltip, BG_BASE, BG_CARD, BG_HOVER,
+    make_scroll_canvas, Tooltip, brick_span, prepare_brick_grid, place_brick,
+    make_chip_button,
+    BG_BASE, BG_CARD, BG_HOVER,
     FG_PRIMARY, FG_DIM, ACCENT_CYAN,
 )
 from features.camera_builder.presets import (
@@ -88,6 +90,9 @@ def build_subject_tab(builder):
 def fill_chips(builder, frame, target_text, chips):
     for w in frame.winfo_children():
         w.destroy()
+    total_units = 24
+    prepare_brick_grid(frame, total_units=total_units, spacing=5)
+    row_idx, col_idx = 0, 0
     for chip in chips:
         if isinstance(chip, tuple):
             english, chinese = chip
@@ -98,11 +103,15 @@ def fill_chips(builder, frame, target_text, chips):
             output = chip
         b = tk.Button(
             frame, text=display, bg=BG_CARD, fg=FG_PRIMARY, relief=tk.FLAT,
-            font=("微软雅黑", 8), padx=8, pady=4, cursor="hand2",
-            activebackground=BG_HOVER, wraplength=120, justify=tk.CENTER,
-            command=lambda c=output, t=target_text: builder._append_chip(t, c),
+            font=("微软雅黑", 7), padx=6, pady=2, cursor="hand2",
+            activebackground=BG_HOVER, wraplength=130, justify=tk.CENTER,
+            command=lambda _checked=False, c=output, t=target_text: builder._append_chip(t, c),
         )
-        b.pack(side=tk.LEFT, padx=(0, 4), pady=2)
+        make_chip_button(b, 38)
+        span = brick_span(display, min_units=4, max_units=8)
+        row_idx, col_idx = place_brick(
+            b, row_idx, col_idx, span, total_units=total_units
+        )
         if isinstance(chip, tuple):
             Tooltip(b, f"{chinese}\n英文：{output}\n点击追加到文本框。")
         else:
